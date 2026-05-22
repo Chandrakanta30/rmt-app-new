@@ -9,9 +9,21 @@ use CodeIgniter\Controller;
 
 class Form extends Controller
 {
+    public function all()
+    {
+        $formModel = new FormModel();
+        $forms = $formModel->select('id, name')->findAll();
+        dd($forms);
+        return $this->response->setJSON([
+            'status' => true,
+            'count' => count($forms),
+            'data' => $forms,
+        ]);
+    }
+
     public function index($formKey = 'acuracy3e1')
     {
-        
+
         $formModel = new FormModel();
         $sectionModel = new SectionModel();
 
@@ -22,7 +34,7 @@ class Form extends Controller
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
         }
 
-       
+
         // 2. Check composite
         $db = \Config\Database::connect();
 
@@ -39,31 +51,31 @@ class Form extends Controller
             $formIds = array_column($childIds, 'child_form_id');
         }
 
-        
+
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
         foreach ($sections as $section) {
             $table = $section['table'];
             $row = $db->table($table)
-            ->orderBy('id', 'DESC')
-            ->get()
-            ->getRowArray();
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getRowArray();
 
-        if ($row) {
-            $dataValues[$section['id']] = $row;
+            if ($row) {
+                $dataValues[$section['id']] = $row;
+            }
         }
-    }
 
 
-    // echo '<pre>';
-    // print_r($dataValues);
-    // exit();
-    // $dataValues=[];
+        // echo '<pre>';
+        // print_r($dataValues);
+        // exit();
+        // $dataValues=[];
 
 
-    // print_r($dataValues[11]['input1']);
-    // exit();
+        // print_r($dataValues[11]['input1']);
+        // exit();
         return view('form_view', [
             'form' => $form,
             'sections' => $sections,
@@ -77,13 +89,13 @@ class Form extends Controller
         $db = \Config\Database::connect();
 
         $sections = $request->getPost('sections');
-        
+
 
         if (!$sections) {
             return redirect()->back()->with('error', 'No data submitted');
         }
 
-        
+
         foreach ($sections as $sectionId => $fields) {
 
             $table = $request->getPost('table_name');
