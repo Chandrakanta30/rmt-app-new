@@ -9,14 +9,17 @@ use CodeIgniter\Controller;
 
 class Form extends Controller
 {
-    public function index($formKey = 'acuracy3e1')
+    public function index($formKey = 'accuracyform')
     {
         
+        // return "coming";
         $formModel = new FormModel();
         $sectionModel = new SectionModel();
 
         // 1. Get form
         $form = $formModel->where('form_key', $formKey)->first();
+
+        
 
         if (!$form) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -25,6 +28,8 @@ class Form extends Controller
        
         // 2. Check composite
         $db = \Config\Database::connect();
+
+        // return $db;
 
         $childIds = $db->table('form_compositions')
             ->select('child_form_id')
@@ -39,7 +44,7 @@ class Form extends Controller
             $formIds = array_column($childIds, 'child_form_id');
         }
 
-        
+        $dataValues=[];
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
@@ -55,15 +60,6 @@ class Form extends Controller
         }
     }
 
-
-    // echo '<pre>';
-    // print_r($dataValues);
-    // exit();
-    // $dataValues=[];
-
-
-    // print_r($dataValues[11]['input1']);
-    // exit();
         return view('form_view', [
             'form' => $form,
             'sections' => $sections,

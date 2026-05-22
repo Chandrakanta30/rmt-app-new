@@ -83,10 +83,12 @@
 
     <?php endif; ?>
 
+    <br><br>
+<button type="submit">Submit</button>
+
 <?php endforeach; ?>
 
-<br><br>
-<button type="submit">Submit</button>
+
 
 </form>
 
