@@ -774,6 +774,8 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
+        
     </style>
     <?= $this->renderSection('styles') ?>
 </head>
