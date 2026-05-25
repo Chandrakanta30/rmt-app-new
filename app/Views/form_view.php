@@ -1,94 +1,113 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title><?= esc($form['name']) ?></title>
-    <style>
-        .inline-input {
-            width: 80px;
-            margin: 0 5px;
-            display: inline-block;
-        }
-    </style>
-</head>
-<body>
+<?= $this->extend('layouts/main_layout') ?>
 
-<h2><?= esc($form['name']) ?></h2>
+<?= $this->section('title') ?><?= esc($form['name']) ?><?= $this->endSection() ?>
 
-
-
-<?php foreach ($sections as $section): ?>
-    <form method="post" action="http://localhost:8888/code4/public/index.php/form/submit">
-
-<?= csrf_field() ?>
-    <h3><?= esc($section['title']) ?></h3>
-
-    <input type="hidden" name="table_name" value="<?= esc($section['table']) ?>">
-
-    
-    <?php if ($section['layout'] === 'inline'): ?>
-
-        <?php
-            $template = $section['inline_template'];
-
-            // Map fields
-            $fieldMap = [];
-            foreach ($section['fields'] as $field) {
-                $fieldMap[$field['name']] = $field;
-            }
-
-            // Replace placeholders safely
-            $template = preg_replace_callback('/\{(.*?)\}/', function($matches) use ($fieldMap, $section,$values) {
-
-                $name = $matches[1];
-
-                if (!isset($fieldMap[$name])) {
-                    return $matches[0];
-                }
-
-                $field = $fieldMap[$name];
-                $validation = json_decode($field['validation'], true);
-
-
-                $value = old('sections.'.$section['id'].'.'.$field['name']) 
+<?= $this->section('content') ?>
+<?php
+    $renderTemplateInput = static function (array $field, array $section, array $values): string {
+        $validation = json_decode($field['validation'], true) ?? [];
+        $value = old('sections.' . $section['id'] . '.' . $field['name'])
             ?? ($values[$section['id']][$field['name']] ?? '');
 
-            // $value='';
-                // 
-                // print_r($values);
-// exit();
+        $required = !empty($validation['required']) ? ' required' : '';
+        $label = esc($field['label'] ?? $field['name']);
 
+        return '<label class="template-field">'
+            . '<span>' . $label . '</span>'
+            . '<input type="' . esc($field['type']) . '" value="' . esc($value) . '" name="sections[' . esc($section['id']) . '][' . esc($field['name']) . ']"' . $required . '>'
+            . '</label>';
+    };
 
+    $renderSectionTemplate = static function (string $template, array $section, array $values) use ($renderTemplateInput): string {
+        $fieldMap = [];
 
-                // ✅ SINGLE LINE INPUT (IMPORTANT FIX)
-                return '<input type="'.$field['type'].'"  value="'.esc($value).'"  name="sections['.$section['id'].']['.$field['name'].']" class="inline-input" '.(!empty($validation['required']) ? 'required' : '').'>';
-            }, $template);
+        foreach ($section['fields'] as $field) {
+            $fieldMap[$field['name']] = $field;
+        }
 
-            // Preserve line breaks
-            echo nl2br($template);
-        ?>
+        return preg_replace_callback('/\{(.*?)\}/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
+            $name = trim($matches[1]);
 
-    <?php else: ?>
+            if (!isset($fieldMap[$name])) {
+                return $matches[0];
+            }
 
-        <?php foreach ($section['fields'] as $field): ?>
+            return $renderTemplateInput($fieldMap[$name], $section, $values);
+        }, $template);
+    };
+?>
+<div class="page-shell">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">Validation form</p>
+            <h1><?= esc($form['name']) ?></h1>
+            <p class="page-subtitle">Capture and review analytical validation data section by section.</p>
+        </div>
+        <a class="btn btn-ghost" href="<?= base_url('forms') ?>">All forms</a>
+    </div>
 
-            <div>
-                <label><?= esc($field['label']) ?></label>
-                <input 
-                    type="<?= esc($field['type']) ?>"
-                    name="sections[<?= $section['id'] ?>][<?= $field['name'] ?>]"
-                >
-            </div>
-
-        <?php endforeach; ?>
-
+    <?php if (session()->getFlashdata('success')): ?>
+        <div class="alert alert-success"><?= esc(session()->getFlashdata('success')) ?></div>
     <?php endif; ?>
 
-<?php endforeach; ?>
+    <?php if (session()->getFlashdata('error')): ?>
+        <div class="alert alert-error"><?= esc(session()->getFlashdata('error')) ?></div>
+    <?php endif; ?>
 
-<br><br>
-<button type="submit">Submit</button>
+    <div class="form-sections">
+        <?php foreach ($sections as $index => $section): ?>
+            <?php $layout = strtolower($section['layout'] ?? ''); ?>
+            <form class="section-panel" method="post" action="<?= site_url('form/submit') ?>">
+                <?= csrf_field() ?>
+                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($section['table']) ?>">
 
-</form>
+                <div class="section-panel-header">
+                    <div>
+                        <span class="section-kicker">Section <?= $index + 1 ?></span>
+                        <h2><?= esc($section['title']) ?></h2>
+                    </div>
+                    <span class="section-count"><?= count($section['fields']) ?> fields</span>
+                </div>
 
-</body>
-</html>
+                <?php if ($layout === 'inline'): ?>
+                    <div class="inline-template">
+                        <?php
+                            echo nl2br($renderSectionTemplate($section['inline_template'] ?? '', $section, $values));
+                        ?>
+                    </div>
+                <?php elseif (in_array($layout, ['tabular', 'table'], true)): ?>
+                    <div class="table-template">
+                        <?php
+                            $template = $section['table_template'] ?? $section['inline_template'] ?? '';
+                            echo $renderSectionTemplate($template, $section, $values);
+                        ?>
+                    </div>
+                <?php else: ?>
+                    <div class="field-grid">
+                        <?php foreach ($section['fields'] as $field): ?>
+                            <?php
+                                $validation = json_decode($field['validation'], true) ?? [];
+                                $value = old('sections.' . $section['id'] . '.' . $field['name'])
+                                    ?? ($values[$section['id']][$field['name']] ?? '');
+                            ?>
+                            <label class="form-group">
+                                <span><?= esc($field['label']) ?></span>
+                                <input
+                                    type="<?= esc($field['type']) ?>"
+                                    name="sections[<?= esc($section['id']) ?>][<?= esc($field['name']) ?>]"
+                                    value="<?= esc($value) ?>"
+                                    <?= !empty($validation['required']) ? 'required' : '' ?>
+                                >
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="section-actions">
+                    <button class="btn btn-primary" type="submit">Save section</button>
+                </div>
+            </form>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?= $this->endSection() ?>
