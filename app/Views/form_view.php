@@ -4,17 +4,30 @@
 
 <?= $this->section('content') ?>
 <?php
-    $renderTemplateInput = static function (array $field, array $section, array $values): string {
+    $isTextLikeType = static function (string $type): bool {
+        return in_array(strtolower($type), ['text', 'search', 'tel', 'url', 'email'], true);
+    };
+
+    $specialCharAttrs = static function (array $field) use ($isTextLikeType): string {
+        if (!$isTextLikeType((string) ($field['type'] ?? 'text'))) {
+            return '';
+        }
+
+        return ' pattern="[A-Za-z0-9\\s]*" title="Only letters, numbers, and spaces are allowed." data-no-special="1"';
+    };
+
+    $renderTemplateInput = static function (array $field, array $section, array $values) use ($specialCharAttrs): string {
         $validation = json_decode($field['validation'], true) ?? [];
         $value = old('sections.' . $section['id'] . '.' . $field['name'])
             ?? ($values[$section['id']][$field['name']] ?? '');
 
         $required = !empty($validation['required']) ? ' required' : '';
         $label = esc($field['label'] ?? $field['name']);
+        $specialValidation = $specialCharAttrs($field);
 
         return '<label class="template-field">'
             . '<span>' . $label . '</span>'
-            . '<input type="' . esc($field['type']) . '" value="' . esc($value) . '" name="sections[' . esc($section['id']) . '][' . esc($field['name']) . ']"' . $required . '>'
+            . '<input type="' . esc($field['type']) . '" value="' . esc($value) . '" name="sections[' . esc($section['id']) . '][' . esc($field['name']) . ']"' . $required . $specialValidation . '>'
             . '</label>';
     };
 
@@ -97,6 +110,7 @@
                                     name="sections[<?= esc($section['id']) ?>][<?= esc($field['name']) ?>]"
                                     value="<?= esc($value) ?>"
                                     <?= !empty($validation['required']) ? 'required' : '' ?>
+                                    <?= $specialCharAttrs($field) ?>
                                 >
                             </label>
                         <?php endforeach; ?>
@@ -110,4 +124,27 @@
         <?php endforeach; ?>
     </div>
 </div>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script>
+    (function () {
+        const specialCharRegex = /[^A-Za-z0-9\s]/g;
+        const inputs = document.querySelectorAll('input[data-no-special="1"]');
+
+        inputs.forEach(function (input) {
+            input.addEventListener('input', function () {
+                const cleaned = input.value.replace(specialCharRegex, '');
+                if (cleaned !== input.value) {
+                    input.value = cleaned;
+                    input.setCustomValidity('Only letters, numbers, and spaces are allowed.');
+                    input.reportValidity();
+                    return;
+                }
+
+                input.setCustomValidity('');
+            });
+        });
+    })();
+</script>
 <?= $this->endSection() ?>

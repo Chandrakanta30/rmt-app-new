@@ -93,6 +93,7 @@ class Form extends Controller
     {
         $request = service('request');
         $db = \Config\Database::connect();
+        $fieldModel = new FieldModel();
 
         $sections = $request->getPost('sections');
 
@@ -101,6 +102,7 @@ class Form extends Controller
             return redirect()->back()->with('error', 'No data submitted');
         }
 
+        $specialCharPattern = '/[^A-Za-z0-9\s]/';
 
         foreach ($sections as $sectionId => $fields) {
 
@@ -111,6 +113,31 @@ class Form extends Controller
             $allowedTables = $db->listTables();
             if (!$table || !in_array($table, $allowedTables, true)) {
                 continue;
+            }
+
+            $sectionFieldDefs = $fieldModel
+                ->where('section_id', $sectionId)
+                ->findAll();
+
+            $textLikeFieldNames = [];
+            foreach ($sectionFieldDefs as $fieldDef) {
+                $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
+                if (in_array($fieldType, ['text', 'search', 'tel', 'url', 'email'], true)) {
+                    $textLikeFieldNames[] = $fieldDef['name'];
+                }
+            }
+
+            foreach ($fields as $fieldName => $value) {
+                if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
+                    continue;
+                }
+
+                if (preg_match($specialCharPattern, $value)) {
+                    return redirect()->back()->withInput()->with(
+                        'error',
+                        'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
+                    );
+                }
             }
 
             $db->table($table)->insert($fields);
