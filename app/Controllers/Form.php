@@ -46,7 +46,7 @@ class Form extends Controller
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
         }
 
-       
+
         // 2. Check composite
         $db = \Config\Database::connect();
 
@@ -72,14 +72,14 @@ class Form extends Controller
         foreach ($sections as $section) {
             $table = $section['table'];
             $row = $db->table($table)
-            ->orderBy('id', 'DESC')
-            ->get()
-            ->getRowArray();
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getRowArray();
 
-        if ($row) {
-            $dataValues[$section['id']] = $row;
+            if ($row) {
+                $dataValues[$section['id']] = $row;
+            }
         }
-    }
 
         return view('form_view', [
             'form' => $form,
@@ -93,15 +93,17 @@ class Form extends Controller
     {
         $request = service('request');
         $db = \Config\Database::connect();
+        $fieldModel = new FieldModel();
 
         $sections = $request->getPost('sections');
-        
+
 
         if (!$sections) {
             return redirect()->back()->with('error', 'No data submitted');
         }
 
-        
+        $specialCharPattern = '/[^A-Za-z0-9\s]/';
+
         foreach ($sections as $sectionId => $fields) {
 
             $tableNames = $request->getPost('table_name');
@@ -111,6 +113,31 @@ class Form extends Controller
             $allowedTables = $db->listTables();
             if (!$table || !in_array($table, $allowedTables, true)) {
                 continue;
+            }
+
+            $sectionFieldDefs = $fieldModel
+                ->where('section_id', $sectionId)
+                ->findAll();
+
+            $textLikeFieldNames = [];
+            foreach ($sectionFieldDefs as $fieldDef) {
+                $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
+                if (in_array($fieldType, ['text', 'search', 'tel', 'url', 'email'], true)) {
+                    $textLikeFieldNames[] = $fieldDef['name'];
+                }
+            }
+
+            foreach ($fields as $fieldName => $value) {
+                if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
+                    continue;
+                }
+
+                if (preg_match($specialCharPattern, $value)) {
+                    return redirect()->back()->withInput()->with(
+                        'error',
+                        'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
+                    );
+                }
             }
 
             $db->table($table)->insert($fields);
