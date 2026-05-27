@@ -564,6 +564,30 @@
             width: 9rem;
         }
 
+        .template-field--textarea {
+            vertical-align: top;
+        }
+
+        .template-field--textarea textarea {
+            width: 16rem;
+            min-height: 6rem;
+            padding: 0.68rem 0.75rem;
+            border: 1px solid #cbd7e2;
+            border-radius: 8px;
+            background: #fbfdff;
+            color: #172033;
+            font-size: 0.92rem;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .template-field--textarea textarea:focus {
+            outline: none;
+            border-color: #289672;
+            box-shadow: 0 0 0 3px rgba(40,150,114,0.14);
+            background: white;
+        }
+
         .table-template {
             width: 100%;
             overflow-x: auto;

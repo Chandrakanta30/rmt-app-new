@@ -22,30 +22,40 @@
             ?? ($values[$section['id']][$field['name']] ?? '');
 
         $required = !empty($validation['required']) ? ' required' : '';
-        $label = esc($field['label'] ?? $field['name']);
-        $specialValidation = $specialCharAttrs($field);
+        $name     = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']';
+        $type     = strtolower($field['type'] ?? 'text');
 
-        return '<label class="template-field">'
-            . '<span>' . $label . '</span>'
-            . '<input type="' . esc($field['type']) . '" value="' . esc($value) . '" name="sections[' . esc($section['id']) . '][' . esc($field['name']) . ']"' . $required . $specialValidation . '>'
-            . '</label>';
+        if ($type === 'textarea') {
+            return '<span class="template-field template-field--textarea"><textarea name="' . $name . '"' . $required . '>' . esc($value) . '</textarea></span>';
+        }
+
+        $specialValidation = $specialCharAttrs($field);
+        return '<span class="template-field"><input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $specialValidation . '></span>';
     };
 
     $renderSectionTemplate = static function (string $template, array $section, array $values) use ($renderTemplateInput): string {
-        $fieldMap = [];
+        $fieldMap      = [];
+        $fieldMapLower = [];
 
         foreach ($section['fields'] as $field) {
-            $fieldMap[$field['name']] = $field;
+            $fieldMap[$field['name']]                    = $field;
+            $fieldMapLower[strtolower($field['name'])]   = $field;
         }
 
-        return preg_replace_callback('/\{(.*?)\}/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
+        return preg_replace_callback('/\{(.*?)\}/', static function ($matches) use ($fieldMap, $fieldMapLower, $section, $values, $renderTemplateInput) {
             $name = trim($matches[1]);
 
-            if (!isset($fieldMap[$name])) {
-                return $matches[0];
+            // Exact match
+            if (isset($fieldMap[$name])) {
+                return $renderTemplateInput($fieldMap[$name], $section, $values);
             }
 
-            return $renderTemplateInput($fieldMap[$name], $section, $values);
+            // Case-insensitive match: {INPUT_1} → field name "input_1"
+            if (isset($fieldMapLower[strtolower($name)])) {
+                return $renderTemplateInput($fieldMapLower[strtolower($name)], $section, $values);
+            }
+
+            return $matches[0];
         }, $template);
     };
 ?>
