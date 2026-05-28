@@ -66,19 +66,25 @@
     //              [fieldName] or [fieldName|input] → input field
     //              [fieldName|label] or [fieldName|header] → read-only text
     $renderTableTemplate = static function (string $template, array $section, array $values) use ($renderTemplateInput, $parseCsvLine): string {
-        $fieldMap      = [];
-        $fieldMapLower = [];
+        $fieldMap = [];
 
         foreach ($section['fields'] as $field) {
-            $fieldMap[$field['name']]                  = $field;
-            $fieldMapLower[strtolower($field['name'])] = $field;
+            $fieldMap[$field['name']] = $field;
         }
 
-        $renderCell = static function (string $raw) use ($fieldMap, $fieldMapLower, $section, $values, $renderTemplateInput): string {
+        $renderCell = static function (string $raw) use ($fieldMap, $section, $values, $renderTemplateInput): string {
             $trimmed = trim($raw);
 
             if ($trimmed === '') {
                 return '';
+            }
+
+            // {fieldName} curly-brace syntax (e.g. {input_1})
+            if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
+                $field = $fieldMap[trim($m[1])] ?? null;
+                if ($field) {
+                    return $renderTemplateInput($field, $section, $values);
+                }
             }
 
             // [fieldName] or [fieldName|type] syntax
@@ -91,30 +97,15 @@
                     return esc($fieldKey);
                 }
 
-                $field = $fieldMap[$fieldKey]
-                    ?? $fieldMapLower[strtolower($fieldKey)]
-                    ?? null;
+                $field = $fieldMap[$fieldKey] ?? null;
 
-                if ($field) {
-                    return $renderTemplateInput($field, $section, $values);
-                }
-            }
-
-            // {fieldName} curly-brace syntax (e.g. {input_1})
-            if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
-                $fieldKey = trim($m[1]);
-                $field = $fieldMap[$fieldKey]
-                    ?? $fieldMapLower[strtolower($fieldKey)]
-                    ?? null;
                 if ($field) {
                     return $renderTemplateInput($field, $section, $values);
                 }
             }
 
             // Plain field name without brackets (e.g. "input_1" stored directly)
-            $field = $fieldMap[$trimmed]
-                ?? $fieldMapLower[strtolower($trimmed)]
-                ?? null;
+            $field = $fieldMap[$trimmed] ?? null;
 
             if ($field) {
                 return $renderTemplateInput($field, $section, $values);
@@ -165,25 +156,18 @@
     };
 
     $renderSectionTemplate = static function (string $template, array $section, array $values) use ($renderTemplateInput): string {
-        $fieldMap      = [];
-        $fieldMapLower = [];
+        $fieldMap = [];
 
         foreach ($section['fields'] as $field) {
-            $fieldMap[$field['name']]                    = $field;
-            $fieldMapLower[strtolower($field['name'])]   = $field;
+            $fieldMap[$field['name']] = $field;
         }
 
-        return preg_replace_callback('/\{(.*?)\}/', static function ($matches) use ($fieldMap, $fieldMapLower, $section, $values, $renderTemplateInput) {
+        return preg_replace_callback('/\{(.*?)\}/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
             $name = trim($matches[1]);
 
             // Exact match
             if (isset($fieldMap[$name])) {
                 return $renderTemplateInput($fieldMap[$name], $section, $values);
-            }
-
-            // Case-insensitive match: {INPUT_1} → field name "input_1"
-            if (isset($fieldMapLower[strtolower($name)])) {
-                return $renderTemplateInput($fieldMapLower[strtolower($name)], $section, $values);
             }
 
             return $matches[0];
