@@ -21,6 +21,7 @@
         $value = old('sections.' . $section['id'] . '.' . $field['name'])
             ?? ($values[$section['id']][$field['name']] ?? '');
 
+        $label = esc($field['label'] ?? $field['name']);
         $required = !empty($validation['required']) ? ' required' : '';
         $name     = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']';
         $type     = strtolower($field['type'] ?? 'text');
@@ -30,7 +31,7 @@
         }
 
         $specialValidation = $specialCharAttrs($field);
-        return '<span class="template-field"><input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $specialValidation . '></span>';
+        return '<span class="template-field">('.$label.')<input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $specialValidation . '></span>';
     };
 
     // Parses one CSV line respecting quoted fields
