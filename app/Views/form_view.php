@@ -33,6 +33,137 @@
         return '<span class="template-field"><input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $specialValidation . '></span>';
     };
 
+    // Parses one CSV line respecting quoted fields
+    $parseCsvLine = static function (string $line): array {
+        $cells  = [];
+        $cell   = '';
+        $quoted = false;
+        $len    = strlen($line);
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $line[$i];
+            $next = $line[$i + 1] ?? '';
+
+            if ($char === '"' && $next === '"') {
+                $cell .= '"';
+                $i++;
+            } elseif ($char === '"') {
+                $quoted = !$quoted;
+            } elseif ($char === ',' && !$quoted) {
+                $cells[] = trim($cell);
+                $cell    = '';
+            } else {
+                $cell .= $char;
+            }
+        }
+
+        $cells[] = trim($cell);
+        return $cells;
+    };
+
+    // Renders a CSV table template as an HTML <table>
+    // Cell syntax: plain text → <th>/<td> label
+    //              [fieldName] or [fieldName|input] → input field
+    //              [fieldName|label] or [fieldName|header] → read-only text
+    $renderTableTemplate = static function (string $template, array $section, array $values) use ($renderTemplateInput, $parseCsvLine): string {
+        $fieldMap      = [];
+        $fieldMapLower = [];
+
+        foreach ($section['fields'] as $field) {
+            $fieldMap[$field['name']]                  = $field;
+            $fieldMapLower[strtolower($field['name'])] = $field;
+        }
+
+        $renderCell = static function (string $raw) use ($fieldMap, $fieldMapLower, $section, $values, $renderTemplateInput): string {
+            $trimmed = trim($raw);
+
+            if ($trimmed === '') {
+                return '';
+            }
+
+            // [fieldName] or [fieldName|type] syntax
+            if (preg_match('/^\[(.+)\]$/', $trimmed, $m)) {
+                $parts    = array_map('trim', explode('|', $m[1]));
+                $fieldKey = $parts[0];
+                $cellType = strtolower($parts[1] ?? 'input');
+
+                if ($cellType === 'label' || $cellType === 'header') {
+                    return esc($fieldKey);
+                }
+
+                $field = $fieldMap[$fieldKey]
+                    ?? $fieldMapLower[strtolower($fieldKey)]
+                    ?? null;
+
+                if ($field) {
+                    return $renderTemplateInput($field, $section, $values);
+                }
+            }
+
+            // {fieldName} curly-brace syntax (e.g. {input_1})
+            if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
+                $fieldKey = trim($m[1]);
+                $field = $fieldMap[$fieldKey]
+                    ?? $fieldMapLower[strtolower($fieldKey)]
+                    ?? null;
+                if ($field) {
+                    return $renderTemplateInput($field, $section, $values);
+                }
+            }
+
+            // Plain field name without brackets (e.g. "input_1" stored directly)
+            $field = $fieldMap[$trimmed]
+                ?? $fieldMapLower[strtolower($trimmed)]
+                ?? null;
+
+            if ($field) {
+                return $renderTemplateInput($field, $section, $values);
+            }
+
+            return esc($trimmed);
+        };
+
+        $lines = array_values(array_filter(
+            explode("\n", str_replace("\r\n", "\n", $template)),
+            fn ($l) => trim($l) !== ''
+        ));
+
+        if (empty($lines)) {
+            return '';
+        }
+
+        $html        = '<table>';
+        $headerCells = $parseCsvLine($lines[0]);
+        $html       .= '<thead><tr>';
+
+        foreach ($headerCells as $cell) {
+            $html .= '<th>' . esc(trim($cell)) . '</th>';
+        }
+
+        $html .= '</tr></thead>';
+
+        if (count($lines) > 1) {
+            $html .= '<tbody>';
+
+            for ($i = 1; $i < count($lines); $i++) {
+                $cells  = $parseCsvLine($lines[$i]);
+                $html  .= '<tr>';
+
+                foreach ($cells as $cell) {
+                    $html .= '<td>' . $renderCell($cell) . '</td>';
+                }
+
+                $html .= '</tr>';
+            }
+
+            $html .= '</tbody>';
+        }
+
+        $html .= '</table>';
+
+        return $html;
+    };
+
     $renderSectionTemplate = static function (string $template, array $section, array $values) use ($renderTemplateInput): string {
         $fieldMap      = [];
         $fieldMapLower = [];
@@ -102,7 +233,8 @@
                     <div class="table-template">
                         <?php
                             $template = $section['table_template'] ?? $section['inline_template'] ?? '';
-                            echo $renderSectionTemplate($template, $section, $values);
+                            echo $renderTableTemplate($template, $section, $values);
+                            //   echo $renderSectionTemplate($template, $section, $values);
                         ?>
                     </div>
                 <?php else: ?>
