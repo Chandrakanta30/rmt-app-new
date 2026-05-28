@@ -15,6 +15,7 @@ class SectionModel extends Model
 
         $sections = $db->table('sections')
             ->whereIn('form_id', $formIds)
+            ->where('table IS NOT NULL')
             ->orderBy('order')
             ->get()
             ->getResultArray();
