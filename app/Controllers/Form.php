@@ -31,8 +31,9 @@ class Form extends Controller
     }
 
     public function index($formKey = 'accuracyform')
+    //formkey hardcoded ????
     {
-        
+
         // return "coming";
         $formModel = new FormModel();
         $sectionModel = new SectionModel();
@@ -40,7 +41,7 @@ class Form extends Controller
         // 1. Get form
         $form = $formModel->where('form_key', $formKey)->first();
 
-        
+
 
         if (!$form) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -65,12 +66,15 @@ class Form extends Controller
             $formIds = array_column($childIds, 'child_form_id');
         }
 
-        $dataValues=[];
+        $dataValues = [];
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
         foreach ($sections as $section) {
             $table = $section['table'];
+            if (empty($table)) {
+                continue;
+            }
             $row = $db->table($table)
                 ->orderBy('id', 'DESC')
                 ->get()
