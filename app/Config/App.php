@@ -16,7 +16,7 @@ class App extends BaseConfig
      *
      * E.g., http://example.com/
      */
-    public string $baseURL = 'http://localhost:8888/rmt-app-new-main/public/index.php';
+    public string $baseURL = 'http://localhost/rmt-app/rmt-app-new/public/index.php';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.

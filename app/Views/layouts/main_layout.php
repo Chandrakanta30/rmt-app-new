@@ -14,7 +14,8 @@
 
         body {
             font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
-            background: #f0f2f5;
+            background: #eef3f6;
+            color: #172033;
             overflow-x: hidden;
         }
 
@@ -27,7 +28,7 @@
         /* ========== SIDEBAR STYLES ========== */
         .sidebar {
             width: 280px;
-            background: linear-gradient(180deg, #0b2b3b 0%, #0a1e2a 100%);
+            background: #0b1f2a;
             color: #e0e0e0;
             position: fixed;
             height: 100vh;
@@ -52,14 +53,16 @@
         }
 
         .logo-icon {
-            background: rgba(255,255,255,0.15);
+            background: #18a06b;
             width: 40px;
             height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 10px;
-            font-size: 1.2rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0;
         }
 
         .logo-text {
@@ -84,7 +87,8 @@
             color: #cbd5e1;
             text-decoration: none;
             transition: all 0.2s;
-            font-size: 0.9rem;
+            font-size: 0.92rem;
+            border-left: 3px solid transparent;
         }
 
         .nav-link:hover {
@@ -99,7 +103,15 @@
         }
 
         .nav-icon {
-            font-size: 1.2rem;
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.08);
+            font-size: 0.78rem;
+            font-weight: 700;
             width: 28px;
         }
 
@@ -123,12 +135,13 @@
 
         /* ========== TOP HEADER ========== */
         .top-header {
-            background: white;
+            background: rgba(255,255,255,0.9);
             padding: 0.875rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 0 rgba(15,23,42,0.08);
+            backdrop-filter: blur(12px);
             position: sticky;
             top: 0;
             z-index: 99;
@@ -193,7 +206,7 @@
         .main-content {
             flex: 1;
             padding: 2rem;
-            background: #f8fafc;
+            background: radial-gradient(circle at top left, rgba(40,150,114,0.12), transparent 30rem), #f6f8fb;
         }
 
         /* ========== CENTERED LOGO BANNER ========== */
@@ -292,12 +305,8 @@
 
         /* ========== DYNAMIC FORM STYLES ========== */
         .dynamic-form-container {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-top: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #e2e8f0;
+            width: min(1180px, 100%);
+            margin: 0 auto;
         }
 
         .form-title {
@@ -341,17 +350,23 @@
         }
 
         .btn {
-            padding: 0.6rem 1.2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            padding: 0.72rem 1rem;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-size: 0.85rem;
             font-weight: 500;
             transition: all 0.2s;
+            text-decoration: none;
+            min-height: 42px;
         }
 
         .btn-primary {
-            background: #1e4668;
+            background: #153e5c;
             color: white;
         }
 
@@ -366,6 +381,343 @@
 
         .btn-success:hover {
             background: #1e6f5c;
+        }
+
+        .btn-ghost {
+            background: white;
+            color: #153e5c;
+            border: 1px solid #d7e0e8;
+        }
+
+        .btn-ghost:hover {
+            border-color: #9fb2c3;
+            box-shadow: 0 8px 22px rgba(15,23,42,0.08);
+        }
+
+        .page-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .page-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .eyebrow,
+        .section-kicker {
+            color: #289672;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0;
+            text-transform: uppercase;
+        }
+
+        .page-heading h1 {
+            color: #12263a;
+            font-size: clamp(1.7rem, 3vw, 2.55rem);
+            line-height: 1.1;
+            margin-top: 0.2rem;
+        }
+
+        .page-subtitle {
+            color: #607184;
+            margin-top: 0.5rem;
+            max-width: 46rem;
+        }
+
+        .alert {
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            font-size: 0.9rem;
+            border: 1px solid;
+        }
+
+        .alert-success {
+            background: #ecfdf5;
+            border-color: #b7e4cf;
+            color: #126246;
+        }
+
+        .alert-error {
+            background: #fff1f2;
+            border-color: #fecdd3;
+            color: #9f1239;
+        }
+
+        .form-sections,
+        .forms-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .section-panel,
+        .form-card,
+        .empty-state {
+            background: white;
+            border: 1px solid #dfe7ee;
+            border-radius: 8px;
+            box-shadow: 0 16px 40px rgba(15,23,42,0.06);
+        }
+
+        .section-panel {
+            padding: 1.25rem;
+        }
+
+        .section-panel-header,
+        .form-card-top,
+        .forms-toolbar,
+        .section-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .section-panel-header {
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e6edf3;
+            margin-bottom: 1rem;
+        }
+
+        .section-panel-header h2,
+        .empty-state h2,
+        .form-card h2 {
+            color: #12263a;
+            font-size: 1.05rem;
+            line-height: 1.3;
+        }
+
+        .section-count,
+        .status-pill,
+        .forms-total {
+            background: #edf8f3;
+            color: #15704e;
+            border-radius: 999px;
+            padding: 0.34rem 0.7rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            margin-bottom: 0;
+        }
+
+        .form-group span,
+        .template-field span,
+        .search-box span {
+            color: #46596b;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .form-group input,
+        .template-field input,
+        .search-box input {
+            width: 100%;
+            min-height: 42px;
+            padding: 0.68rem 0.75rem;
+            border: 1px solid #cbd7e2;
+            border-radius: 8px;
+            background: #fbfdff;
+            color: #172033;
+            font-size: 0.92rem;
+        }
+
+        .form-group input:focus,
+        .template-field input:focus,
+        .search-box input:focus {
+            outline: none;
+            border-color: #289672;
+            box-shadow: 0 0 0 3px rgba(40,150,114,0.14);
+            background: white;
+        }
+
+        .inline-template {
+            color: #28394b;
+            line-height: 2.8;
+            overflow-wrap: anywhere;
+        }
+
+        .template-field {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            margin: 0 0.35rem 0.5rem;
+            vertical-align: middle;
+        }
+
+        .template-field input {
+            width: 9rem;
+        }
+
+        .template-field--textarea {
+            vertical-align: top;
+        }
+
+        .template-field--textarea textarea {
+            width: 16rem;
+            min-height: 6rem;
+            padding: 0.68rem 0.75rem;
+            border: 1px solid #cbd7e2;
+            border-radius: 8px;
+            background: #fbfdff;
+            color: #172033;
+            font-size: 0.92rem;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .template-field--textarea textarea:focus {
+            outline: none;
+            border-color: #289672;
+            box-shadow: 0 0 0 3px rgba(40,150,114,0.14);
+            background: white;
+        }
+
+        .table-template {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid #e1e8ef;
+            border-radius: 8px;
+            background: #fbfdff;
+        }
+
+        .table-template table {
+            width: 100%;
+            min-width: 720px;
+            border-collapse: separate;
+            border-spacing: 0;
+            color: #27384a;
+        }
+
+        .table-template th,
+        .table-template td {
+            padding: 0.72rem;
+            border-right: 1px solid #e1e8ef;
+            border-bottom: 1px solid #e1e8ef;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .table-template th {
+            background: #eef5f8;
+            color: #1f3b52;
+            font-size: 0.8rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .table-template tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .table-template th:last-child,
+        .table-template td:last-child {
+            border-right: 0;
+        }
+
+        .table-template .template-field {
+            display: flex;
+            margin: 0;
+            min-width: 9rem;
+        }
+
+        .table-template .template-field span {
+            display: none;
+        }
+
+        .table-template .template-field input {
+            width: 100%;
+            min-width: 8rem;
+        }
+
+        .section-actions {
+            justify-content: flex-end;
+            border-top: 1px solid #e6edf3;
+            margin-top: 1.1rem;
+            padding-top: 1rem;
+        }
+
+        .forms-toolbar {
+            flex-wrap: wrap;
+            background: white;
+            border: 1px solid #dfe7ee;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .search-box {
+            display: flex;
+            flex: 1 1 280px;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+
+        .forms-grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+
+        .form-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+            padding: 1rem;
+        }
+
+        .form-avatar {
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #153e5c;
+            color: white;
+            border-radius: 8px;
+            font-weight: 800;
+        }
+
+        .form-card p {
+            color: #607184;
+            min-height: 1.4rem;
+        }
+
+        .form-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            color: #526476;
+            font-size: 0.82rem;
+            margin-top: auto;
+        }
+
+        .form-card-meta span {
+            background: #f4f7fa;
+            border-radius: 999px;
+            padding: 0.32rem 0.58rem;
+        }
+
+        .empty-state {
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .empty-state p {
+            color: #607184;
+            margin-top: 0.35rem;
         }
 
         /* ========== FOOTER ========== */
@@ -404,6 +756,42 @@
             
             .main-content {
                 padding: 1rem;
+            }
+
+            .top-header {
+                padding: 0.75rem 1rem;
+            }
+
+            .header-date,
+            .user-name,
+            .dropdown-icon {
+                display: none;
+            }
+
+            .page-heading,
+            .section-panel-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .page-heading .btn,
+            .section-actions .btn {
+                width: 100%;
+            }
+
+            .inline-template {
+                line-height: 1.8;
+            }
+
+            .template-field {
+                display: flex;
+                align-items: stretch;
+                flex-direction: column;
+                margin: 0 0 0.75rem;
+            }
+
+            .template-field input {
+                width: 100%;
             }
             
             .metrics-grid {
@@ -469,9 +857,9 @@
             </div> -->
             
             <!-- Dynamic Content Section (Your Forms Will Go Here) -->
-            <!-- <div class="dynamic-form-container">
+             <div class="dynamic-form-container">
                 <?= $this->renderSection('content') ?>
-            </div> -->
+            </div> 
         </main>
         
         <!-- Include Footer -->

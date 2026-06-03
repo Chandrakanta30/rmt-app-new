@@ -26,9 +26,9 @@ class Database extends Config
      */
     public array $default = [
         'DSN'          => '',
-        'hostname'     => '168.144.70.184',
-        'username'     => 'chandra',
-        'password'     => '8Wt8}dO09Ps(!',
+        'hostname'     => '192.168.0.231',
+        'username'     => 'DatabasePC',
+        'password'     => 'Manager',
         'database'     => 'rmt_form_builder',
         'DBDriver'     => 'MySQLi',
         'DBPrefix'     => '',

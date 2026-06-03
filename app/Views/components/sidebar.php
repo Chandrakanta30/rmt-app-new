@@ -10,8 +10,14 @@
     <ul class="sidebar-nav">
         <li class="nav-item">
             <a href="<?= base_url('dashboard') ?>" class="nav-link <?= (url_is('dashboard*')) ? 'active' : '' ?>">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon">D</span>
                 <span class="nav-title">Dashboard</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="<?= base_url('forms') ?>" class="nav-link <?= (url_is('forms*') || url_is('form*')) ? 'active' : '' ?>">
+                <span class="nav-icon">F</span>
+                <span class="nav-title">Forms</span>
             </a>
         </li>
         <!-- <li class="nav-divider">VALIDATION PARAMETERS</li>
