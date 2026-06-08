@@ -566,10 +566,15 @@
 
         .template-field--textarea {
             vertical-align: top;
+            display: inline-block;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .template-field--textarea textarea {
-            width: 16rem;
+            width: 100%;
+            max-width: 100%;
             min-height: 6rem;
             padding: 0.68rem 0.75rem;
             border: 1px solid #cbd7e2;
@@ -578,7 +583,8 @@
             color: #172033;
             font-size: 0.92rem;
             font-family: inherit;
-            resize: vertical;
+            resize: both;
+            box-sizing: border-box;
         }
 
         .template-field--textarea textarea:focus {
