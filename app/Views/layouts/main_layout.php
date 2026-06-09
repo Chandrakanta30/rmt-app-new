@@ -573,7 +573,7 @@
         }
 
         .template-field--textarea textarea {
-            width: 100%;
+            width: 24rem;
             max-width: 100%;
             min-height: 6rem;
             padding: 0.68rem 0.75rem;
