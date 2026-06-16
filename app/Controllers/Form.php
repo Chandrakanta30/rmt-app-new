@@ -31,7 +31,6 @@ class Form extends Controller
     }
 
     public function index($formKey = 'accuracyform')
-    //formkey hardcoded ????
     {
 
         // return "coming";
@@ -113,6 +112,17 @@ class Form extends Controller
             $tableNames = $request->getPost('table_name');
             $table = is_array($tableNames) ? ($tableNames[$sectionId] ?? null) : $tableNames;
 
+            if($table === 'form_values'){
+
+                $data = [
+                    'form_id'  => 'John Doe',
+                    'section_id' => $sectionId,
+                    'values' => json_encode($request->getPost('sections')[$sectionId])
+                ];
+                $builder = $db->table('form_values');
+                $builder->insert($data);
+            }else{
+
             // ⚠️ SECURITY: validate table name
             $allowedTables = $db->listTables();
             if (!$table || !in_array($table, $allowedTables, true)) {
@@ -145,6 +155,7 @@ class Form extends Controller
             }
 
             $db->table($table)->insert($fields);
+            }
         }
 
 

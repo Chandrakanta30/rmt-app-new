@@ -198,7 +198,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             <?php $layout = strtolower($section['layout'] ?? ''); ?>
             <form class="section-panel" method="post" action="<?= site_url('form/submit') ?>">
                 <?= csrf_field() ?>
-                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($section['table']) ?>">
+                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($section['table']??'form_values') ?>">
 
                 <div class="section-panel-header">
                     <div>
