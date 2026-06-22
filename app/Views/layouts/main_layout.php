@@ -306,7 +306,7 @@
         /* ========== DYNAMIC FORM STYLES ========== */
         .dynamic-form-container {
             width: min(1180px, 100%);
-            margin: 0 auto;
+            /* margin: 0 auto; */
         }
 
         .form-title {
