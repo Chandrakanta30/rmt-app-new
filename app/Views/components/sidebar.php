@@ -6,7 +6,7 @@
             <span class="logo-text">SMS Lab</span>
         </div>
     </div>
-    
+
     <ul class="sidebar-nav">
         <li class="nav-item">
             <a href="<?= base_url('dashboard') ?>" class="nav-link <?= (url_is('dashboard*')) ? 'active' : '' ?>">
@@ -15,9 +15,17 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="<?= base_url('forms') ?>" class="nav-link <?= (url_is('forms*') || url_is('form*')) ? 'active' : '' ?>">
+            <a href="<?= base_url('forms') ?>"
+                class="nav-link <?= (url_is('forms*') || url_is('form*')) ? 'active' : '' ?>">
                 <span class="nav-icon">F</span>
                 <span class="nav-title">Forms</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="<?= base_url('intermediate-precision') ?>"
+                class="nav-link <?= (url_is('intermediate-precision*')) ? 'active' : '' ?>">
+                <span class="nav-icon">📐</span>
+                <span class="nav-title">Intermediate Precision</span>
             </a>
         </li>
         <!-- <li class="nav-divider">VALIDATION PARAMETERS</li>

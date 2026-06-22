@@ -16,3 +16,5 @@ $routes->get('/forms', 'Form::listing');
 $routes->get('/form', 'Form::index');
 $routes->get('/form/(:any)', 'Form::index/$1');
 $routes->post('/form/submit', 'Form::submit');
+$routes->get('/intermediate-precision', 'Form::intermediateList');
+$routes->get('/instrument', 'Form::intermediateList');
