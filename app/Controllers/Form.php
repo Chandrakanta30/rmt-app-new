@@ -175,11 +175,13 @@ class Form extends Controller
 
             $db->table($table)->insert($fields);
             }
+            return redirect()->back()->with('success', 'Saved successfully');
         }
 
 
-        return redirect()->back()->with('success', 'Saved successfully');
+
+        // 
         // return redirect('http://localhost:8888/code4/public/index.php/form')->with('success', 'Saved successfully');
         // return redirect()->back()->with('success', 'Saved successfully');
     }
-}
+
