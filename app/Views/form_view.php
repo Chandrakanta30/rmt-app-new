@@ -16,14 +16,26 @@ $specialCharAttrs = static function (array $field) use ($isTextLikeType): string
     return ' pattern="[A-Za-z0-9\\s]*" title="Only letters, numbers, and spaces are allowed." data-no-special="1"';
 };
 
-$renderTemplateInput = static function (array $field, array $section, array $values) use ($specialCharAttrs): string {
+$renderTemplateInput = static function (array $field, array $section, array $values, bool $multiple = false, ?array $rowValues = null) use ($specialCharAttrs): string {
     $validation = json_decode($field['validation'], true) ?? [];
-    $value = old('sections.' . $section['id'] . '.' . $field['name'])
-        ?? ($values[$section['id']][$field['name']] ?? '');
+
+    if ($rowValues !== null) {
+        // Repeatable table row: take the value for this specific row.
+        $value = $rowValues[$field['name']] ?? '';
+    } else {
+        $value = old('sections.' . $section['id'] . '.' . $field['name'])
+            ?? ($values[$section['id']][$field['name']] ?? '');
+    }
+
+    // Never echo an array as a scalar.
+    if (is_array($value)) {
+        $value = '';
+    }
 
     $label = esc($field['label'] ?? $field['name']);
     $required = !empty($validation['required']) ? ' required' : '';
-    $name     = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']';
+    // $multiple -> name[] so cloned rows submit as arrays (input 0, input 1, ...).
+    $name     = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']' . ($multiple ? '[]' : '');
     $type     = strtolower($field['type'] ?? 'text');
 
     if ($type === 'textarea') {
@@ -73,7 +85,8 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $fieldMap[$field['name']] = $field;
     }
 
-    $renderCell = static function (string $raw) use ($fieldMap, $section, $values, $renderTemplateInput): string {
+    // Renders a single cell, prefilling input values from $rowValues (this row's saved data).
+    $renderCell = static function (string $raw, array $rowValues) use ($fieldMap, $section, $values, $renderTemplateInput): string {
         $trimmed = trim($raw);
 
         if ($trimmed === '') {
@@ -84,7 +97,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
             $field = $fieldMap[trim($m[1])] ?? null;
             if ($field) {
-                return $renderTemplateInput($field, $section, $values);
+                return $renderTemplateInput($field, $section, $values, true, $rowValues);
             }
         }
 
@@ -101,7 +114,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
             $field = $fieldMap[$fieldKey] ?? null;
 
             if ($field) {
-                return $renderTemplateInput($field, $section, $values);
+                return $renderTemplateInput($field, $section, $values, true, $rowValues);
             }
         }
 
@@ -109,7 +122,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $field = $fieldMap[$trimmed] ?? null;
 
         if ($field) {
-            return $renderTemplateInput($field, $section, $values);
+            return $renderTemplateInput($field, $section, $values, true, $rowValues);
         }
 
         return esc($trimmed);
@@ -124,7 +137,23 @@ $renderTableTemplate = static function (string $template, array $section, array 
         return '';
     }
 
-    $html        = '<table>';
+    // Normalize saved data into a list of row objects:
+    //  - repeatable table  -> [ {..row0..}, {..row1..} ]
+    //  - single record     -> [ {..fields..} ]
+    $saved     = $values[$section['id']] ?? [];
+    $savedRows = [];
+    if (is_array($saved) && !empty($saved)) {
+        $isList    = array_keys($saved) === range(0, count($saved) - 1);
+        $savedRows = $isList ? array_values($saved) : [$saved];
+    }
+
+    $bodyLines      = array_slice($lines, 1);
+    $isSingleRow    = count($bodyLines) === 1;
+    // Single-row template repeats once per saved row; multi-row matrices render once.
+    $rowInstances   = $isSingleRow ? max(1, count($savedRows)) : 1;
+
+    $html        = '<div class="repeatable-table" data-section="' . esc($section['id']) . '">';
+    $html       .= '<table>';
     $headerCells = $parseCsvLine($lines[0]);
     $html       .= '<thead><tr>';
 
@@ -132,26 +161,34 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $html .= '<th>' . esc(trim($cell)) . '</th>';
     }
 
+    $html .= '<th class="rt-action-col">Action</th>';
     $html .= '</tr></thead>';
 
-    if (count($lines) > 1) {
-        $html .= '<tbody>';
+    $html .= '<tbody>';
 
-        for ($i = 1; $i < count($lines); $i++) {
-            $cells  = $parseCsvLine($lines[$i]);
-            $html  .= '<tr>';
-
-            foreach ($cells as $cell) {
-                $html .= '<td>' . $renderCell($cell) . '</td>';
-            }
-
-            $html .= '</tr>';
+    for ($instance = 0; $instance < $rowInstances; $instance++) {
+        $rowValues = $isSingleRow ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
+        if (!is_array($rowValues)) {
+            $rowValues = [];
         }
 
-        $html .= '</tbody>';
+        foreach ($bodyLines as $line) {
+            $cells = $parseCsvLine($line);
+            $html .= '<tr class="rt-row">';
+
+            foreach ($cells as $cell) {
+                $html .= '<td>' . $renderCell($cell, $rowValues) . '</td>';
+            }
+
+            $html .= '<td class="rt-action-col"><button type="button" class="rt-del" title="Remove row">&times;</button></td>';
+            $html .= '</tr>';
+        }
     }
 
+    $html .= '</tbody>';
     $html .= '</table>';
+    $html .= '<div class="rt-add-wrap"><button type="button" class="rt-add">+ Add Row</button></div>';
+    $html .= '</div>';
 
     return $html;
 };
@@ -202,7 +239,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
 
 
-                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table']??'form_values') ?>">
+                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
 
                 <div class="section-panel-header">
                     <div>
@@ -276,5 +313,87 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         });
     })();
+
+    // Repeatable table rows: clone the last row (empty) on "Add Row", delete on "×".
+    (function() {
+        function clearRow(row) {
+            row.querySelectorAll('input, textarea, select').forEach(function(el) {
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    el.checked = false;
+                } else {
+                    el.value = '';
+                }
+                el.setCustomValidity('');
+            });
+        }
+
+        document.querySelectorAll('.repeatable-table').forEach(function(wrap) {
+            var tbody = wrap.querySelector('tbody');
+            var addBtn = wrap.querySelector('.rt-add');
+            if (!tbody) return;
+
+            if (addBtn) {
+                addBtn.addEventListener('click', function() {
+                    var rows = tbody.querySelectorAll('.rt-row');
+                    if (!rows.length) return;
+                    var clone = rows[rows.length - 1].cloneNode(true);
+                    clearRow(clone);
+                    tbody.appendChild(clone);
+                });
+            }
+
+            tbody.addEventListener('click', function(e) {
+                var btn = e.target.closest('.rt-del');
+                if (!btn) return;
+                var rows = tbody.querySelectorAll('.rt-row');
+                if (rows.length <= 1) {
+                    clearRow(rows[0]); // keep at least one row
+                    return;
+                }
+                btn.closest('.rt-row').remove();
+            });
+        });
+    })();
 </script>
+<style>
+    .rt-add-wrap {
+        margin-top: 10px;
+    }
+
+    .rt-add {
+        background: #1f7a44;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .rt-add:hover {
+        background: #195f36;
+    }
+
+    .rt-del {
+        background: #d9534f;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        width: 30px;
+        height: 30px;
+        line-height: 1;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .rt-del:hover {
+        background: #b52b27;
+    }
+
+    td.rt-action-col,
+    th.rt-action-col {
+        text-align: center;
+        white-space: nowrap;
+    }
+</style>
 <?= $this->endSection() ?>
