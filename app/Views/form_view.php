@@ -16,26 +16,14 @@ $specialCharAttrs = static function (array $field) use ($isTextLikeType): string
     return ' pattern="[A-Za-z0-9\\s]*" title="Only letters, numbers, and spaces are allowed." data-no-special="1"';
 };
 
-$renderTemplateInput = static function (array $field, array $section, array $values, bool $multiple = false, ?array $rowValues = null) use ($specialCharAttrs): string {
+$renderTemplateInput = static function (array $field, array $section, array $values) use ($specialCharAttrs): string {
     $validation = json_decode($field['validation'], true) ?? [];
-
-    if ($rowValues !== null) {
-        // Repeatable table row: take the value for this specific row.
-        $value = $rowValues[$field['name']] ?? '';
-    } else {
-        $value = old('sections.' . $section['id'] . '.' . $field['name'])
-            ?? ($values[$section['id']][$field['name']] ?? '');
-    }
-
-    // Never echo an array as a scalar.
-    if (is_array($value)) {
-        $value = '';
-    }
+    $value = old('sections.' . $section['id'] . '.' . $field['name'])
+        ?? ($values[$section['id']][$field['name']] ?? '');
 
     $label = esc($field['label'] ?? $field['name']);
     $required = !empty($validation['required']) ? ' required' : '';
-    // $multiple -> name[] so cloned rows submit as arrays (input 0, input 1, ...).
-    $name     = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']' . ($multiple ? '[]' : '');
+    $name     = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']';
     $type     = strtolower($field['type'] ?? 'text');
 
     if ($type === 'textarea') {
@@ -85,8 +73,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $fieldMap[$field['name']] = $field;
     }
 
-    // Renders a single cell, prefilling input values from $rowValues (this row's saved data).
-    $renderCell = static function (string $raw, array $rowValues) use ($fieldMap, $section, $values, $renderTemplateInput): string {
+    $renderCell = static function (string $raw) use ($fieldMap, $section, $values, $renderTemplateInput): string {
         $trimmed = trim($raw);
 
         if ($trimmed === '') {
@@ -97,7 +84,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
             $field = $fieldMap[trim($m[1])] ?? null;
             if ($field) {
-                return $renderTemplateInput($field, $section, $values, true, $rowValues);
+                return $renderTemplateInput($field, $section, $values);
             }
         }
 
@@ -114,7 +101,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
             $field = $fieldMap[$fieldKey] ?? null;
 
             if ($field) {
-                return $renderTemplateInput($field, $section, $values, true, $rowValues);
+                return $renderTemplateInput($field, $section, $values);
             }
         }
 
@@ -122,7 +109,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $field = $fieldMap[$trimmed] ?? null;
 
         if ($field) {
-            return $renderTemplateInput($field, $section, $values, true, $rowValues);
+            return $renderTemplateInput($field, $section, $values);
         }
 
         return esc($trimmed);
@@ -185,12 +172,12 @@ $renderTableTemplate = static function (string $template, array $section, array 
             $rowValues = [];
         }
 
-        foreach ($bodyLines as $line) {
-            $cells = $parseCsvLine($line);
-            $html .= '<tr class="rt-row">';
+        for ($i = 1; $i < count($lines); $i++) {
+            $cells  = $parseCsvLine($lines[$i]);
+            $html  .= '<tr>';
 
             foreach ($cells as $cell) {
-                $html .= '<td>' . $renderCell($cell, $rowValues) . '</td>';
+                $html .= '<td>' . $renderCell($cell) . '</td>';
             }
 
             if ($editable) {
@@ -198,9 +185,10 @@ $renderTableTemplate = static function (string $template, array $section, array 
             }
             $html .= '</tr>';
         }
+
+        $html .= '</tbody>';
     }
 
-    $html .= '</tbody>';
     $html .= '</table>';
 
     // Only editable tables let the end user add rows.
@@ -259,7 +247,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
 
 
-                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
+                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table']??'form_values') ?>">
 
                 <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]" value="<?= esc($section['action_flag'] ?? '') ?>">
 
@@ -335,87 +323,5 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         });
     })();
-
-    // Repeatable table rows: clone the last row (empty) on "Add Row", delete on "×".
-    (function() {
-        function clearRow(row) {
-            row.querySelectorAll('input, textarea, select').forEach(function(el) {
-                if (el.type === 'checkbox' || el.type === 'radio') {
-                    el.checked = false;
-                } else {
-                    el.value = '';
-                }
-                el.setCustomValidity('');
-            });
-        }
-
-        document.querySelectorAll('.repeatable-table').forEach(function(wrap) {
-            var tbody = wrap.querySelector('tbody');
-            var addBtn = wrap.querySelector('.rt-add');
-            if (!tbody) return;
-
-            if (addBtn) {
-                addBtn.addEventListener('click', function() {
-                    var rows = tbody.querySelectorAll('.rt-row');
-                    if (!rows.length) return;
-                    var clone = rows[rows.length - 1].cloneNode(true);
-                    clearRow(clone);
-                    tbody.appendChild(clone);
-                });
-            }
-
-            tbody.addEventListener('click', function(e) {
-                var btn = e.target.closest('.rt-del');
-                if (!btn) return;
-                var rows = tbody.querySelectorAll('.rt-row');
-                if (rows.length <= 1) {
-                    clearRow(rows[0]); // keep at least one row
-                    return;
-                }
-                btn.closest('.rt-row').remove();
-            });
-        });
-    })();
 </script>
-<style>
-    .rt-add-wrap {
-        margin-top: 10px;
-    }
-
-    .rt-add {
-        background: #1f7a44;
-        color: #fff;
-        border: 0;
-        border-radius: 6px;
-        padding: 8px 14px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-
-    .rt-add:hover {
-        background: #195f36;
-    }
-
-    .rt-del {
-        background: #d9534f;
-        color: #fff;
-        border: 0;
-        border-radius: 6px;
-        width: 30px;
-        height: 30px;
-        line-height: 1;
-        font-size: 18px;
-        cursor: pointer;
-    }
-
-    .rt-del:hover {
-        background: #b52b27;
-    }
-
-    td.rt-action-col,
-    th.rt-action-col {
-        text-align: center;
-        white-space: nowrap;
-    }
-</style>
 <?= $this->endSection() ?>

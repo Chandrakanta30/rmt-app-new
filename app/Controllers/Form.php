@@ -70,35 +70,17 @@ class Form extends Controller
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
         foreach ($sections as $section) {
-            // Table-less sections store submissions in form_values (keyed by section_id);
-            // sections bound to a real table read their own latest row.
-            $table = !empty($section['table']) ? $section['table'] : 'form_values';
+            $table = $section['table']??'form_values';
+            if (empty($table)) {
+                continue;
+            }
+            $row = $db->table($table)
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getRowArray();
 
-            if ($table === 'form_values') {
-                $row = $db->table('form_values')
-                    ->where('section_id', $section['id'])
-                    ->orderBy('id', 'DESC')
-                    ->get()
-                    ->getRowArray();
-
-                if ($row) {
-                    // values is a JSON array of row objects for repeatable tables,
-                    // or a single object for grid/inline sections.
-                    $dataValues[$section['id']] = json_decode($row['values'], true);
-                }
-            } else {
-                if (!in_array($table, $db->listTables(), true)) {
-                    continue;
-                }
-
-                $row = $db->table($table)
-                    ->orderBy('id', 'DESC')
-                    ->get()
-                    ->getRowArray();
-
-                if ($row) {
-                    $dataValues[$section['id']] = $row;
-                }
+            if ($row) {
+                $dataValues[$section['id']] = $section['table']?$row:json_decode($row['values'], true);
             }
         }
 
@@ -148,36 +130,16 @@ class Form extends Controller
                 }
             }
 
-            if ($isRepeatable) {
-                $rowCount = 0;
-                foreach ($fields as $value) {
-                    if (is_array($value)) {
-                        $rowCount = max($rowCount, count($value));
-                    }
-                }
+            $sectionFieldDefs = $fieldModel
+                ->where('section_id', $sectionId)
+                ->findAll();
 
-                $rows = [];
-                for ($i = 0; $i < $rowCount; $i++) {
-                    $row = [];
-                    foreach ($fields as $fieldName => $value) {
-                        // Array columns vary per row; scalar columns repeat on every row.
-                        $row[$fieldName] = is_array($value) ? ($value[$i] ?? '') : $value;
-                    }
-
-                    // Skip rows the user left completely blank.
-                    $hasData = false;
-                    foreach ($row as $cell) {
-                        if (is_string($cell) ? trim($cell) !== '' : !empty($cell)) {
-                            $hasData = true;
-                            break;
-                        }
-                    }
-                    if ($hasData) {
-                        $rows[] = $row;
-                    }
+            $textLikeFieldNames = [];
+            foreach ($sectionFieldDefs as $fieldDef) {
+                $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
+                if (in_array($fieldType, ['text', 'search', 'tel', 'url', 'email'], true)) {
+                    $textLikeFieldNames[] = $fieldDef['name'];
                 }
-            } else {
-                $rows = [$fields]; // single record (grid / inline / fixed table)
             }
 
             if ($table === 'form_values' || empty($table)) {
@@ -203,35 +165,15 @@ class Form extends Controller
                     continue;
                 }
 
-                $sectionFieldDefs = $fieldModel
-                    ->where('section_id', $sectionId)
-                    ->findAll();
-
-                $textLikeFieldNames = [];
-                foreach ($sectionFieldDefs as $fieldDef) {
-                    $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
-                    if (in_array($fieldType, ['text', 'search', 'tel', 'url', 'email'], true)) {
-                        $textLikeFieldNames[] = $fieldDef['name'];
-                    }
+                if (preg_match($specialCharPattern, $value)) {
+                    return redirect()->back()->withInput()->with(
+                        'error',
+                        'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
+                    );
                 }
+            }
 
-                // Insert one DB row per submitted row.
-                foreach ($rows as $row) {
-                    foreach ($row as $fieldName => $value) {
-                        if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
-                            continue;
-                        }
-
-                        if (preg_match($specialCharPattern, $value)) {
-                            return redirect()->back()->withInput()->with(
-                                'error',
-                                'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
-                            );
-                        }
-                    }
-
-                    $db->table($table)->insert($row);
-                }
+            $db->table($table)->insert($fields);
             }
         }
 
