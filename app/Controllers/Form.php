@@ -70,17 +70,35 @@ class Form extends Controller
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
         foreach ($sections as $section) {
-            $table = $section['table']??'form_values';
-            if (empty($table)) {
-                continue;
-            }
-            $row = $db->table($table)
-                ->orderBy('id', 'DESC')
-                ->get()
-                ->getRowArray();
+            // Table-less sections store submissions in form_values (keyed by section_id);
+            // sections bound to a real table read their own latest row.
+            $table = !empty($section['table']) ? $section['table'] : 'form_values';
 
-            if ($row) {
-                $dataValues[$section['id']] = $section['table']?$row:json_decode($row['values'], true);
+            if ($table === 'form_values') {
+                $row = $db->table('form_values')
+                    ->where('section_id', $section['id'])
+                    ->orderBy('id', 'DESC')
+                    ->get()
+                    ->getRowArray();
+
+                if ($row) {
+                    // values is a JSON array of row objects for repeatable tables,
+                    // or a single object for grid/inline sections.
+                    $dataValues[$section['id']] = json_decode($row['values'], true);
+                }
+            } else {
+                if (!in_array($table, $db->listTables(), true)) {
+                    continue;
+                }
+
+                $row = $db->table($table)
+                    ->orderBy('id', 'DESC')
+                    ->get()
+                    ->getRowArray();
+
+                if ($row) {
+                    $dataValues[$section['id']] = $row;
+                }
             }
         }
 
@@ -113,49 +131,101 @@ class Form extends Controller
             $form_id = $request->getPost('form_id');
             $table = is_array($tableNames) ? ($tableNames[$sectionId] ?? null) : $tableNames;
 
-            if($table === 'form_values'){
-
-                $data = [
-                    'form_id'  => $form_id[$sectionId],
-                    'section_id' => $sectionId,
-                    'values' => json_encode($request->getPost('sections')[$sectionId])
-                ];
-                $builder = $db->table('form_values');
-                $builder->insert($data);
-            }else{
-
-            // ⚠️ SECURITY: validate table name
-            $allowedTables = $db->listTables();
-            if (!$table || !in_array($table, $allowedTables, true)) {
-                continue;
-            }
-
-            $sectionFieldDefs = $fieldModel
-                ->where('section_id', $sectionId)
-                ->findAll();
-
-            $textLikeFieldNames = [];
-            foreach ($sectionFieldDefs as $fieldDef) {
-                $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
-                if (in_array($fieldType, ['text', 'search', 'tel', 'url', 'email'], true)) {
-                    $textLikeFieldNames[] = $fieldDef['name'];
+            // Repeatable table layouts submit each column as an array
+            // (sections[sid][field][] -> [val0, val1, ...]). Detect that and
+            // transpose the columns back into one record per row.
+            $isRepeatable = false;
+            foreach ((array) $fields as $value) {
+                if (is_array($value)) {
+                    $isRepeatable = true;
+                    break;
                 }
             }
 
-            foreach ($fields as $fieldName => $value) {
-                if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
+            if ($isRepeatable) {
+                $rowCount = 0;
+                foreach ($fields as $value) {
+                    if (is_array($value)) {
+                        $rowCount = max($rowCount, count($value));
+                    }
+                }
+
+                $rows = [];
+                for ($i = 0; $i < $rowCount; $i++) {
+                    $row = [];
+                    foreach ($fields as $fieldName => $value) {
+                        // Array columns vary per row; scalar columns repeat on every row.
+                        $row[$fieldName] = is_array($value) ? ($value[$i] ?? '') : $value;
+                    }
+
+                    // Skip rows the user left completely blank.
+                    $hasData = false;
+                    foreach ($row as $cell) {
+                        if (is_string($cell) ? trim($cell) !== '' : !empty($cell)) {
+                            $hasData = true;
+                            break;
+                        }
+                    }
+                    if ($hasData) {
+                        $rows[] = $row;
+                    }
+                }
+            } else {
+                $rows = [$fields]; // single record (grid / inline / fixed table)
+            }
+
+            if ($table === 'form_values' || empty($table)) {
+
+                // Repeatable -> store every row as a JSON array (input 0, input 1, ...).
+                // Non-repeatable -> keep the original single-object shape.
+                $payload = $isRepeatable ? $rows : ($rows[0] ?? []);
+
+                // Replace this section's previous record so the saved set always
+                // reflects the full current table (rows accumulate, no duplicates).
+                $db->table('form_values')->where('section_id', $sectionId)->delete();
+
+                $db->table('form_values')->insert([
+                    'form_id'    => $form_id[$sectionId] ?? null,
+                    'section_id' => $sectionId,
+                    'values'     => json_encode($payload),
+                ]);
+            } else {
+
+                // ⚠️ SECURITY: validate table name
+                $allowedTables = $db->listTables();
+                if (!in_array($table, $allowedTables, true)) {
                     continue;
                 }
 
-                if (preg_match($specialCharPattern, $value)) {
-                    return redirect()->back()->withInput()->with(
-                        'error',
-                        'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
-                    );
-                }
-            }
+                $sectionFieldDefs = $fieldModel
+                    ->where('section_id', $sectionId)
+                    ->findAll();
 
-            $db->table($table)->insert($fields);
+                $textLikeFieldNames = [];
+                foreach ($sectionFieldDefs as $fieldDef) {
+                    $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
+                    if (in_array($fieldType, ['text', 'search', 'tel', 'url', 'email'], true)) {
+                        $textLikeFieldNames[] = $fieldDef['name'];
+                    }
+                }
+
+                // Insert one DB row per submitted row.
+                foreach ($rows as $row) {
+                    foreach ($row as $fieldName => $value) {
+                        if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
+                            continue;
+                        }
+
+                        if (preg_match($specialCharPattern, $value)) {
+                            return redirect()->back()->withInput()->with(
+                                'error',
+                                'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
+                            );
+                        }
+                    }
+
+                    $db->table($table)->insert($row);
+                }
             }
         }
 
