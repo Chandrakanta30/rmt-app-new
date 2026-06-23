@@ -113,21 +113,21 @@ class Form extends Controller
             $form_id = $request->getPost('form_id');
             $table = is_array($tableNames) ? ($tableNames[$sectionId] ?? null) : $tableNames;
 
-            if($table === 'form_values'){
+            // Row-action mode: group/editable store many rows as an array;
+            // singular (and grid/inline) store a single record object.
+            $actionFlags = $request->getPost('action_flag');
+            $actionFlag  = is_array($actionFlags) ? strtolower($actionFlags[$sectionId] ?? '') : '';
+            $storeAsArray = in_array($actionFlag, ['group', 'editable'], true);
 
-                $data = [
-                    'form_id'  => $form_id[$sectionId],
-                    'section_id' => $sectionId,
-                    'values' => json_encode($request->getPost('sections')[$sectionId])
-                ];
-                $builder = $db->table('form_values');
-                $builder->insert($data);
-            }else{
-
-            // ⚠️ SECURITY: validate table name
-            $allowedTables = $db->listTables();
-            if (!$table || !in_array($table, $allowedTables, true)) {
-                continue;
+            // Repeatable table layouts submit each column as an array
+            // (sections[sid][field][] -> [val0, val1, ...]). Detect that and
+            // transpose the columns back into one record per row.
+            $isRepeatable = false;
+            foreach ((array) $fields as $value) {
+                if (is_array($value)) {
+                    $isRepeatable = true;
+                    break;
+                }
             }
 
             $sectionFieldDefs = $fieldModel
@@ -142,8 +142,26 @@ class Form extends Controller
                 }
             }
 
-            foreach ($fields as $fieldName => $value) {
-                if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
+            if ($table === 'form_values' || empty($table)) {
+
+                // group/editable -> store every row as a JSON array (input 0, input 1, ...).
+                // singular / grid / inline -> keep a single record object.
+                $payload = $storeAsArray ? $rows : ($rows[0] ?? []);
+
+                // Replace this section's previous record so the saved set always
+                // reflects the full current table (rows accumulate, no duplicates).
+                $db->table('form_values')->where('section_id', $sectionId)->delete();
+
+                $db->table('form_values')->insert([
+                    'form_id'    => $form_id[$sectionId] ?? null,
+                    'section_id' => $sectionId,
+                    'values'     => json_encode($payload),
+                ]);
+            } else {
+
+                // ⚠️ SECURITY: validate table name
+                $allowedTables = $db->listTables();
+                if (!in_array($table, $allowedTables, true)) {
                     continue;
                 }
 
