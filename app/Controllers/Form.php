@@ -131,6 +131,12 @@ class Form extends Controller
             $form_id = $request->getPost('form_id');
             $table = is_array($tableNames) ? ($tableNames[$sectionId] ?? null) : $tableNames;
 
+            // Row-action mode: group/editable store many rows as an array;
+            // singular (and grid/inline) store a single record object.
+            $actionFlags = $request->getPost('action_flag');
+            $actionFlag  = is_array($actionFlags) ? strtolower($actionFlags[$sectionId] ?? '') : '';
+            $storeAsArray = in_array($actionFlag, ['group', 'editable'], true);
+
             // Repeatable table layouts submit each column as an array
             // (sections[sid][field][] -> [val0, val1, ...]). Detect that and
             // transpose the columns back into one record per row.
@@ -176,9 +182,9 @@ class Form extends Controller
 
             if ($table === 'form_values' || empty($table)) {
 
-                // Repeatable -> store every row as a JSON array (input 0, input 1, ...).
-                // Non-repeatable -> keep the original single-object shape.
-                $payload = $isRepeatable ? $rows : ($rows[0] ?? []);
+                // group/editable -> store every row as a JSON array (input 0, input 1, ...).
+                // singular / grid / inline -> keep a single record object.
+                $payload = $storeAsArray ? $rows : ($rows[0] ?? []);
 
                 // Replace this section's previous record so the saved set always
                 // reflects the full current table (rows accumulate, no duplicates).

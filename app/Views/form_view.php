@@ -147,10 +147,21 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $savedRows = $isList ? array_values($saved) : [$saved];
     }
 
-    $bodyLines      = array_slice($lines, 1);
-    $isSingleRow    = count($bodyLines) === 1;
-    // Single-row template repeats once per saved row; multi-row matrices render once.
-    $rowInstances   = $isSingleRow ? max(1, count($savedRows)) : 1;
+    // Row-action mode for this section:
+    //   editable -> user can add / delete rows (shows + Add Row and the Action column)
+    //   group    -> multiple rows saved together, but no add/delete UI
+    //   singular -> a single record; anything else behaves the same (no add UI)
+    $actionFlag = strtolower($section['action_flag'] ?? '');
+    $editable   = $actionFlag === 'editable';
+    $group      = $actionFlag === 'group';
+
+    $bodyLines   = array_slice($lines, 1);
+    $isSingleRow = count($bodyLines) === 1;
+
+    // editable/group repeat a single-row template once per saved row; everything
+    // else (singular / unset / multi-row matrices) renders the template once.
+    $repeatRows   = ($editable || $group) && $isSingleRow;
+    $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
 
     $html        = '<div class="repeatable-table" data-section="' . esc($section['id']) . '">';
     $html       .= '<table>';
@@ -161,13 +172,15 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $html .= '<th>' . esc(trim($cell)) . '</th>';
     }
 
-    $html .= '<th class="rt-action-col">Action</th>';
+    if ($editable) {
+        $html .= '<th class="rt-action-col">Action</th>';
+    }
     $html .= '</tr></thead>';
 
     $html .= '<tbody>';
 
     for ($instance = 0; $instance < $rowInstances; $instance++) {
-        $rowValues = $isSingleRow ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
+        $rowValues = $repeatRows ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
         if (!is_array($rowValues)) {
             $rowValues = [];
         }
@@ -180,14 +193,21 @@ $renderTableTemplate = static function (string $template, array $section, array 
                 $html .= '<td>' . $renderCell($cell, $rowValues) . '</td>';
             }
 
-            $html .= '<td class="rt-action-col"><button type="button" class="rt-del" title="Remove row">&times;</button></td>';
+            if ($editable) {
+                $html .= '<td class="rt-action-col"><button type="button" class="rt-del" title="Remove row">&times;</button></td>';
+            }
             $html .= '</tr>';
         }
     }
 
     $html .= '</tbody>';
     $html .= '</table>';
-    $html .= '<div class="rt-add-wrap"><button type="button" class="rt-add">+ Add Row</button></div>';
+
+    // Only editable tables let the end user add rows.
+    if ($editable) {
+        $html .= '<div class="rt-add-wrap"><button type="button" class="rt-add">+ Add Row</button></div>';
+    }
+
     $html .= '</div>';
 
     return $html;
@@ -240,6 +260,8 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
 
                 <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
+
+                <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]" value="<?= esc($section['action_flag'] ?? '') ?>">
 
                 <div class="section-panel-header">
                     <div>
