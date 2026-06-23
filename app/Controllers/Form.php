@@ -146,7 +146,8 @@ class Form extends Controller
 
                 // group/editable -> store every row as a JSON array (input 0, input 1, ...).
                 // singular / grid / inline -> keep a single record object.
-                $payload = $storeAsArray ? $rows : ($rows[0] ?? []);
+                // $payload = $storeAsArray ? $rows : ($rows[0] ?? []);
+               
 
                 // Replace this section's previous record so the saved set always
                 // reflects the full current table (rows accumulate, no duplicates).
@@ -155,7 +156,7 @@ class Form extends Controller
                 $db->table('form_values')->insert([
                     'form_id'    => $form_id[$sectionId] ?? null,
                     'section_id' => $sectionId,
-                    'values'     => json_encode($payload),
+                    'values'     => json_encode($fields),
                 ]);
             } else {
 
@@ -171,9 +172,10 @@ class Form extends Controller
                         'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
                     );
                 }
+                $db->table($table)->insert($fields);
             }
 
-            $db->table($table)->insert($fields);
+            
             }
             return redirect()->back()->with('success', 'Saved successfully');
         }
