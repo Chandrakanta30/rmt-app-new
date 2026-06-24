@@ -4,8 +4,10 @@
 
 <?= $this->section('content') ?>
 <?php
+// Only plain text/search inputs are restricted to letters/numbers/spaces.
+// email, url, tel legitimately need @ : + . etc., so they are NOT restricted.
 $isTextLikeType = static function (string $type): bool {
-    return in_array(strtolower($type), ['text', 'search', 'tel', 'url', 'email'], true);
+    return in_array(strtolower($type), ['text', 'search'], true);
 };
 
 $specialCharAttrs = static function (array $field) use ($isTextLikeType): string {
@@ -16,21 +18,97 @@ $specialCharAttrs = static function (array $field) use ($isTextLikeType): string
     return ' pattern="[A-Za-z0-9\\s]*" title="Only letters, numbers, and spaces are allowed." data-no-special="1"';
 };
 
-$renderTemplateInput = static function (array $field, array $section, array $values) use ($specialCharAttrs): string {
-    $validation = json_decode($field['validation'], true) ?? [];
-    $value = old('sections.' . $section['id'] . '.' . $field['name'])
-        ?? ($values[$section['id']][$field['name']] ?? '');
+// Normalize a field's stored options (JSON) into a [{value, label}, ...] list.
+// Handles both [{id,label}] objects (from the builder) and plain ["a","b"] arrays.
+$parseFieldOptions = static function ($raw): array {
+    $decoded = is_array($raw) ? $raw : json_decode((string) $raw, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
 
-    $label = esc($field['label'] ?? $field['name']);
+    $options = [];
+    foreach ($decoded as $opt) {
+        if (is_array($opt)) {
+            $label = (string) ($opt['label'] ?? $opt['value'] ?? $opt['id'] ?? '');
+            $value = (string) ($opt['value'] ?? $opt['label'] ?? $opt['id'] ?? $label);
+        } else {
+            $label = (string) $opt;
+            $value = (string) $opt;
+        }
+        if ($label === '' && $value === '') {
+            continue;
+        }
+        $options[] = ['value' => $value, 'label' => $label];
+    }
+
+    return $options;
+};
+
+// Renders one form control for a field.
+// $rowIndex: when set (repeatable table rows) the input name is indexed
+//   sections[sid][field][0], [1], ... so each row submits as its own record
+//   and an unchecked checkbox simply leaves a gap instead of shifting rows.
+// $rowValues: the saved values for this specific row (used to prefill).
+$renderTemplateInput = static function (array $field, array $section, array $values, ?int $rowIndex = null, ?array $rowValues = null) use ($specialCharAttrs, $parseFieldOptions): string {
+    $validation = json_decode($field['validation'] ?? 'null', true) ?? [];
+
+    if ($rowValues !== null) {
+        // Repeatable table row: take the value for this specific row.
+        $value = $rowValues[$field['name']] ?? '';
+    } else {
+        $value = old('sections.' . $section['id'] . '.' . $field['name'])
+            ?? ($values[$section['id']][$field['name']] ?? '');
+    }
+
+    // Never echo an array as a scalar.
+    if (is_array($value)) {
+        $value = '';
+    }
+    $value = (string) $value;
+
+    $label    = esc($field['label'] ?? $field['name']);
     $required = !empty($validation['required']) ? ' required' : '';
-    $name     = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']';
     $type     = strtolower($field['type'] ?? 'text');
 
+    $name = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']'
+        . ($rowIndex !== null ? '[' . (int) $rowIndex . ']' : '');
+
+    // --- DROPDOWN SELECT ---
+    if ($type === 'select') {
+        $options = $parseFieldOptions($field['options'] ?? null);
+
+        $html = '<span class="template-field template-field--select"><select name="' . $name . '"' . $required . '>';
+        $html .= '<option value="">-- Select --</option>';
+        foreach ($options as $opt) {
+            $selected = ($value !== '' && $value === $opt['value']) ? ' selected' : '';
+            $html .= '<option value="' . esc($opt['value']) . '"' . $selected . '>' . esc($opt['label']) . '</option>';
+        }
+        $html .= '</select></span>';
+
+        return $html;
+    }
+
+    // --- CHECKBOX --- (value "1" when checked; absent when unchecked)
+    if ($type === 'checkbox') {
+        $checked = ($value !== '' && $value !== '0') ? ' checked' : '';
+
+        return '<span class="template-field template-field--checkbox">'
+            . '<input type="checkbox" value="1" name="' . $name . '"' . $checked . $required . '></span>';
+    }
+
+    // --- TEXTAREA ---
     if ($type === 'textarea') {
         return '<span class="template-field template-field--textarea"><textarea name="' . $name . '"' . $required . '>' . esc($value) . '</textarea></span>';
     }
 
+    // --- TEXT / NUMBER / EMAIL / DATE / etc. ---
+    $allowedTypes = ['text', 'number', 'email', 'date', 'tel', 'url', 'search', 'time', 'datetime-local', 'password'];
+    if (!in_array($type, $allowedTypes, true)) {
+        $type = 'text';
+    }
+
     $specialValidation = $specialCharAttrs($field);
+
     return '<span class="template-field">(' . $label . ')<input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $specialValidation . '></span>';
 };
 
@@ -73,7 +151,9 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $fieldMap[$field['name']] = $field;
     }
 
-    $renderCell = static function (string $raw) use ($fieldMap, $section, $values, $renderTemplateInput): string {
+    // Renders a single cell, prefilling input values from $rowValues (this row's saved data).
+    // $rowIndex indexes the input name for repeatable rows (null = single record).
+    $renderCell = static function (string $raw, array $rowValues, ?int $rowIndex) use ($fieldMap, $section, $values, $renderTemplateInput): string {
         $trimmed = trim($raw);
 
         if ($trimmed === '') {
@@ -84,7 +164,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
             $field = $fieldMap[trim($m[1])] ?? null;
             if ($field) {
-                return $renderTemplateInput($field, $section, $values);
+                return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
             }
         }
 
@@ -101,7 +181,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
             $field = $fieldMap[$fieldKey] ?? null;
 
             if ($field) {
-                return $renderTemplateInput($field, $section, $values);
+                return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
             }
         }
 
@@ -109,7 +189,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $field = $fieldMap[$trimmed] ?? null;
 
         if ($field) {
-            return $renderTemplateInput($field, $section, $values);
+            return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
         }
 
         return esc($trimmed);
@@ -150,7 +230,8 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $repeatRows   = ($editable || $group) && $isSingleRow;
     $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
 
-    $html        = '<div class="repeatable-table" data-section="' . esc($section['id']) . '">';
+    // data-next-index seeds the "Add Row" JS so cloned rows get a fresh index.
+    $html        = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $rowInstances . '">';
     $html       .= '<table>';
     $headerCells = $parseCsvLine($lines[0]);
     $html       .= '<thead><tr>';
@@ -172,12 +253,15 @@ $renderTableTemplate = static function (string $template, array $section, array 
             $rowValues = [];
         }
 
-        for ($i = 1; $i < count($lines); $i++) {
-            $cells  = $parseCsvLine($lines[$i]);
-            $html  .= '<tr>';
+        // Repeatable rows are indexed (0,1,2,...); single records use null.
+        $rowIndex = $repeatRows ? $instance : null;
+
+        foreach ($bodyLines as $line) {
+            $cells = $parseCsvLine($line);
+            $html .= '<tr class="rt-row">';
 
             foreach ($cells as $cell) {
-                $html .= '<td>' . $renderCell($cell) . '</td>';
+                $html .= '<td>' . $renderCell($cell, $rowValues, $rowIndex) . '</td>';
             }
 
             if ($editable) {
@@ -185,10 +269,9 @@ $renderTableTemplate = static function (string $template, array $section, array 
             }
             $html .= '</tr>';
         }
-
-        $html .= '</tbody>';
     }
 
+    $html .= '</tbody>';
     $html .= '</table>';
 
     // Only editable tables let the end user add rows.
@@ -247,7 +330,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
 
 
-                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table']??'form_values') ?>">
+                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
 
                 <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]" value="<?= esc($section['action_flag'] ?? '') ?>">
 
@@ -323,5 +406,100 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         });
     })();
+
+    // Repeatable table rows: clone the last row (empty) on "Add Row", delete on "×".
+    (function() {
+        function clearRow(row) {
+            row.querySelectorAll('input, textarea, select').forEach(function(el) {
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    el.checked = false;
+                } else {
+                    el.value = '';
+                }
+                el.setCustomValidity('');
+            });
+        }
+
+        // Re-point a cloned row's field names to a fresh row index, e.g.
+        // sections[5][qty][2] -> sections[5][qty][7]. Only the trailing [n] changes.
+        function reindexRow(row, index) {
+            row.querySelectorAll('[name]').forEach(function(el) {
+                el.name = el.name.replace(/\[\d+\]$/, '[' + index + ']');
+            });
+        }
+
+        document.querySelectorAll('.repeatable-table').forEach(function(wrap) {
+            var tbody = wrap.querySelector('tbody');
+            var addBtn = wrap.querySelector('.rt-add');
+            if (!tbody) return;
+
+            if (addBtn) {
+                addBtn.addEventListener('click', function() {
+                    var rows = tbody.querySelectorAll('.rt-row');
+                    if (!rows.length) return;
+
+                    // Use a monotonic counter so indexes stay unique even after deletes.
+                    var nextIndex = parseInt(wrap.getAttribute('data-next-index') || rows.length, 10);
+                    var clone = rows[rows.length - 1].cloneNode(true);
+                    clearRow(clone);
+                    reindexRow(clone, nextIndex);
+                    tbody.appendChild(clone);
+                    wrap.setAttribute('data-next-index', nextIndex + 1);
+                });
+            }
+
+            tbody.addEventListener('click', function(e) {
+                var btn = e.target.closest('.rt-del');
+                if (!btn) return;
+                var rows = tbody.querySelectorAll('.rt-row');
+                if (rows.length <= 1) {
+                    clearRow(rows[0]); // keep at least one row
+                    return;
+                }
+                btn.closest('.rt-row').remove();
+            });
+        });
+    })();
 </script>
+<style>
+    .rt-add-wrap {
+        margin-top: 10px;
+    }
+
+    .rt-add {
+        background: #1f7a44;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .rt-add:hover {
+        background: #195f36;
+    }
+
+    .rt-del {
+        background: #d9534f;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        width: 30px;
+        height: 30px;
+        line-height: 1;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .rt-del:hover {
+        background: #b52b27;
+    }
+
+    td.rt-action-col,
+    th.rt-action-col {
+        text-align: center;
+        white-space: nowrap;
+    }
+</style>
 <?= $this->endSection() ?>
