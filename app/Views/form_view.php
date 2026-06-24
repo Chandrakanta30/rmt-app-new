@@ -291,14 +291,28 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         $fieldMap[$field['name']] = $field;
     }
 
-    return preg_replace_callback('/\{(.*?)\}/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
-        $name = trim($matches[1]);
+    // Inline fields can be written either way:
+    //   {field}            — classic builder (/forms/create)
+    //   [field]            — drag & drop builder (/forms/builder)
+    //   [field|label] etc. — modifiers; label/header render as static text
+    return preg_replace_callback('/\{([^}]+)\}|\[([^\]]+)\]/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
+        // group 1 = {...}, group 2 = [...]
+        $token = ($matches[1] ?? '') !== '' ? $matches[1] : ($matches[2] ?? '');
 
-        // Exact match
-        if (isset($fieldMap[$name])) {
-            return $renderTemplateInput($fieldMap[$name], $section, $values);
+        $parts    = array_map('trim', explode('|', $token));
+        $fieldKey = $parts[0];
+        $cellType = strtolower($parts[1] ?? 'input');
+
+        // label/header modifier -> static text, not an input
+        if ($cellType === 'label' || $cellType === 'header') {
+            return esc($fieldKey);
         }
 
+        if (isset($fieldMap[$fieldKey])) {
+            return $renderTemplateInput($fieldMap[$fieldKey], $section, $values);
+        }
+
+        // Unknown token -> leave it exactly as written
         return $matches[0];
     }, $template);
 };
