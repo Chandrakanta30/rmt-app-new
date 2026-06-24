@@ -29,8 +29,11 @@ $parseFieldOptions = static function ($raw): array {
     $options = [];
     foreach ($decoded as $opt) {
         if (is_array($opt)) {
-            $label = (string) ($opt['label'] ?? $opt['value'] ?? $opt['id'] ?? '');
-            $value = (string) ($opt['value'] ?? $opt['label'] ?? $opt['id'] ?? $label);
+            // Builder stores {id, label} where `id` is the value to save and
+            // `label` is shown. Prefer id (or an explicit `value`) for the value
+            // so we never accidentally save the label as the stored value.
+            $value = (string) ($opt['value'] ?? $opt['id'] ?? $opt['label'] ?? '');
+            $label = (string) ($opt['label'] ?? $opt['value'] ?? $opt['id'] ?? $value);
         } else {
             $label = (string) $opt;
             $value = (string) $opt;
@@ -101,6 +104,15 @@ $renderTemplateInput = static function (array $field, array $section, array $val
         return '<span class="template-field template-field--textarea"><textarea name="' . $name . '"' . $required . '>' . esc($value) . '</textarea></span>';
     }
 
+    // --- MEASUREMENT --- free-form technical value: decimals, units, slashes,
+    // scientific notation (40.5 Kv, Kv/Ma, 1.54098×10⁰, "about 09 minutes").
+    // Rendered as text WITHOUT the letters/numbers/spaces restriction so any
+    // symbol is accepted.
+    if ($type === 'measurement') {
+        return '<span class="template-field template-field--measurement">(' . $label . ')'
+            . '<input type="text" inputmode="text" value="' . esc($value) . '" name="' . $name . '"' . $required . '></span>';
+    }
+
     // --- TEXT / NUMBER / EMAIL / DATE / etc. ---
     $allowedTypes = ['text', 'number', 'email', 'date', 'tel', 'url', 'search', 'time', 'datetime-local', 'password'];
     if (!in_array($type, $allowedTypes, true)) {
@@ -109,7 +121,22 @@ $renderTemplateInput = static function (array $field, array $section, array $val
 
     $specialValidation = $specialCharAttrs($field);
 
-    return '<span class="template-field">(' . $label . ')<input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $specialValidation . '></span>';
+    // Number inputs need an explicit step or browsers default to step=1 and
+    // reject decimals (23.45, 40.5). Honor an explicit step/min/max from the
+    // field's validation, otherwise allow any decimal.
+    $numericAttrs = '';
+    if ($type === 'number') {
+        $step = $validation['step'] ?? 'any';
+        $numericAttrs .= ' step="' . esc((string) $step) . '"';
+        if (isset($validation['min']) && $validation['min'] !== '') {
+            $numericAttrs .= ' min="' . esc((string) $validation['min']) . '"';
+        }
+        if (isset($validation['max']) && $validation['max'] !== '') {
+            $numericAttrs .= ' max="' . esc((string) $validation['max']) . '"';
+        }
+    }
+
+    return '<span class="template-field">(' . $label . ')<input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $numericAttrs . $specialValidation . '></span>';
 };
 
 // Parses one CSV line respecting quoted fields
@@ -291,14 +318,28 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         $fieldMap[$field['name']] = $field;
     }
 
-    return preg_replace_callback('/\{(.*?)\}/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
-        $name = trim($matches[1]);
+    // Inline fields can be written either way:
+    //   {field}            — classic builder (/forms/create)
+    //   [field]            — drag & drop builder (/forms/builder)
+    //   [field|label] etc. — modifiers; label/header render as static text
+    return preg_replace_callback('/\{([^}]+)\}|\[([^\]]+)\]/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
+        // group 1 = {...}, group 2 = [...]
+        $token = ($matches[1] ?? '') !== '' ? $matches[1] : ($matches[2] ?? '');
 
-        // Exact match
-        if (isset($fieldMap[$name])) {
-            return $renderTemplateInput($fieldMap[$name], $section, $values);
+        $parts    = array_map('trim', explode('|', $token));
+        $fieldKey = $parts[0];
+        $cellType = strtolower($parts[1] ?? 'input');
+
+        // label/header modifier -> static text, not an input
+        if ($cellType === 'label' || $cellType === 'header') {
+            return esc($fieldKey);
         }
 
+        if (isset($fieldMap[$fieldKey])) {
+            return $renderTemplateInput($fieldMap[$fieldKey], $section, $values);
+        }
+
+        // Unknown token -> leave it exactly as written
         return $matches[0];
     }, $template);
 };
@@ -500,6 +541,22 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     th.rt-action-col {
         text-align: center;
         white-space: nowrap;
+    }
+
+    /* Compact, centered checkbox so it doesn't hog the cell. */
+    .template-field--checkbox {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .template-field--checkbox input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        cursor: pointer;
+        accent-color: #1f7a44;
     }
 </style>
 <?= $this->endSection() ?>

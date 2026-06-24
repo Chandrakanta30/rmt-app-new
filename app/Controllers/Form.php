@@ -125,6 +125,17 @@ class Form extends Controller
 
         $specialCharPattern = '/[^A-Za-z0-9\s]/';
 
+        // Checkboxes only submit a value ("1") when ticked; an unticked box is
+        // simply absent from the POST. Force every checkbox field to an explicit
+        // "1"/"0" so the stored value is never an ambiguous empty string.
+        $normalizeCheckboxes = static function (array $row, array $checkboxFields): array {
+            foreach ($checkboxFields as $cb) {
+                $row[$cb] = (isset($row[$cb]) && (string) $row[$cb] === '1') ? '1' : '0';
+            }
+
+            return $row;
+        };
+
         foreach ($sections as $sectionId => $fields) {
 
             $tableNames = $request->getPost('table_name');
@@ -136,6 +147,16 @@ class Form extends Controller
             $actionFlags = $request->getPost('action_flag');
             $actionFlag  = is_array($actionFlags) ? strtolower($actionFlags[$sectionId] ?? '') : '';
             $storeAsArray = in_array($actionFlag, ['group', 'editable'], true);
+
+            // Field definitions for this section: used to coerce checkboxes to an
+            // explicit 1/0 and (for real tables) to validate text-like fields.
+            $sectionFieldDefs = $fieldModel->where('section_id', $sectionId)->findAll();
+            $checkboxFields   = [];
+            foreach ($sectionFieldDefs as $fieldDef) {
+                if (strtolower((string) ($fieldDef['type'] ?? '')) === 'checkbox') {
+                    $checkboxFields[] = $fieldDef['name'];
+                }
+            }
 
             // Repeatable table layouts submit each column as an array
             // (sections[sid][field][] -> [val0, val1, ...]). Detect that and
@@ -191,7 +212,16 @@ class Form extends Controller
 
                 // group/editable -> store every row as a JSON array (input 0, input 1, ...).
                 // singular / grid / inline -> keep a single record object.
-                $payload = $storeAsArray ? $rows : ($rows[0] ?? []);
+                // Coerce checkboxes to "1"/"0" on the rows we actually keep (done
+                // after the blank-row skip so an unticked box never revives a row).
+                if ($storeAsArray) {
+                    $payload = array_map(
+                        static fn(array $r) => $normalizeCheckboxes($r, $checkboxFields),
+                        $rows
+                    );
+                } else {
+                    $payload = $normalizeCheckboxes($rows[0] ?? [], $checkboxFields);
+                }
 
                 // Replace this section's previous record so the saved set always
                 // reflects the full current table (rows accumulate, no duplicates).
@@ -210,10 +240,6 @@ class Form extends Controller
                     continue;
                 }
 
-                $sectionFieldDefs = $fieldModel
-                    ->where('section_id', $sectionId)
-                    ->findAll();
-
                 $textLikeFieldNames = [];
                 foreach ($sectionFieldDefs as $fieldDef) {
                     $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
@@ -224,6 +250,7 @@ class Form extends Controller
 
                 // Insert one DB row per submitted row.
                 foreach ($rows as $row) {
+                    $row = $normalizeCheckboxes($row, $checkboxFields);
                     foreach ($row as $fieldName => $value) {
                         if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
                             continue;
