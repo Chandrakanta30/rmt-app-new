@@ -149,19 +149,26 @@ class Form extends Controller
             }
 
             if ($isRepeatable) {
-                $rowCount = 0;
+                // Inputs are indexed by row: sections[sid][field][rowIndex].
+                // Collect the actual row indexes used (an unchecked checkbox or a
+                // deleted row leaves gaps — iterating real keys keeps rows aligned).
+                $rowIndexes = [];
                 foreach ($fields as $value) {
                     if (is_array($value)) {
-                        $rowCount = max($rowCount, count($value));
+                        foreach (array_keys($value) as $idx) {
+                            $rowIndexes[$idx] = true;
+                        }
                     }
                 }
+                $rowIndexes = array_keys($rowIndexes);
+                sort($rowIndexes, SORT_NUMERIC);
 
                 $rows = [];
-                for ($i = 0; $i < $rowCount; $i++) {
+                foreach ($rowIndexes as $idx) {
                     $row = [];
                     foreach ($fields as $fieldName => $value) {
                         // Array columns vary per row; scalar columns repeat on every row.
-                        $row[$fieldName] = is_array($value) ? ($value[$i] ?? '') : $value;
+                        $row[$fieldName] = is_array($value) ? ($value[$idx] ?? '') : $value;
                     }
 
                     // Skip rows the user left completely blank.
