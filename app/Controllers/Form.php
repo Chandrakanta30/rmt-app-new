@@ -216,7 +216,7 @@ class Form extends Controller
                 // after the blank-row skip so an unticked box never revives a row).
                 if ($storeAsArray) {
                     $payload = array_map(
-                        static fn (array $r) => $normalizeCheckboxes($r, $checkboxFields),
+                        static fn(array $r) => $normalizeCheckboxes($r, $checkboxFields),
                         $rows
                     );
                 } else {
