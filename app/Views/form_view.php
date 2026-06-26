@@ -222,6 +222,25 @@ $renderTableTemplate = static function (string $template, array $section, array 
         return esc($trimmed);
     };
 
+    // Extract |c#|r# span markers from a [field|...] cell token (1 = no span).
+    $parseSpan = static function (string $raw): array {
+        $colSpan = 1;
+        $rowSpan = 1;
+        $trimmed = trim($raw);
+
+        if (preg_match('/^\[(.+)\]$/', $trimmed, $m)) {
+            foreach (array_map('trim', explode('|', $m[1])) as $part) {
+                if (preg_match('/^c(\d+)$/i', $part, $cm)) {
+                    $colSpan = max(1, min(12, (int) $cm[1]));
+                } elseif (preg_match('/^r(\d+)$/i', $part, $rm)) {
+                    $rowSpan = max(1, min(50, (int) $rm[1]));
+                }
+            }
+        }
+
+        return [$colSpan, $rowSpan];
+    };
+
     $lines = array_values(array_filter(
         explode("\n", str_replace("\r\n", "\n", $template)),
         fn($l) => trim($l) !== ''
@@ -274,6 +293,11 @@ $renderTableTemplate = static function (string $template, array $section, array 
 
     $html .= '<tbody>';
 
+    // Cells hidden beneath a colspan/rowspan, keyed "outputRow:col". $outRow is a
+    // 1-based counter over every rendered <tr> (across repeated instances).
+    $covered = [];
+    $outRow  = 0;
+
     for ($instance = 0; $instance < $rowInstances; $instance++) {
         $rowValues = $repeatRows ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
         if (!is_array($rowValues)) {
@@ -284,11 +308,34 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $rowIndex = $repeatRows ? $instance : null;
 
         foreach ($bodyLines as $line) {
+            $outRow++;
             $cells = $parseCsvLine($line);
             $html .= '<tr class="rt-row">';
 
+            $col = 0;
             foreach ($cells as $cell) {
-                $html .= '<td>' . $renderCell($cell, $rowValues, $rowIndex) . '</td>';
+                $col++;
+                // Skip grid positions already occupied by a span from a prior cell/row.
+                while (!empty($covered[$outRow . ':' . $col])) {
+                    $col++;
+                }
+
+                [$colSpan, $rowSpan] = $parseSpan($cell);
+                $attrs = ($colSpan > 1 ? ' colspan="' . $colSpan . '"' : '')
+                       . ($rowSpan > 1 ? ' rowspan="' . $rowSpan . '"' : '');
+
+                $html .= '<td' . $attrs . '>' . $renderCell($cell, $rowValues, $rowIndex) . '</td>';
+
+                // Reserve the cells this span covers so later cells/rows skip them.
+                for ($ri = $outRow; $ri < $outRow + $rowSpan; $ri++) {
+                    for ($ci = $col; $ci < $col + $colSpan; $ci++) {
+                        if ($ri !== $outRow || $ci !== $col) {
+                            $covered[$ri . ':' . $ci] = true;
+                        }
+                    }
+                }
+
+                $col += $colSpan - 1;
             }
 
             if ($editable) {
