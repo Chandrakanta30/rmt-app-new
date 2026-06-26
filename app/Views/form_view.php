@@ -271,88 +271,206 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $bodyLines   = array_slice($lines, 1);
     $isSingleRow = count($bodyLines) === 1;
 
-    // editable/group repeat a single-row template once per saved row; everything
-    // else (singular / unset / multi-row matrices) renders the template once.
-    $repeatRows   = ($editable || $group) && $isSingleRow;
+    // group (non-editable) repeats a single-row template once per saved row;
+    // singular / unset / multi-row matrices render once. Editable tables use the
+    // block-aware path below instead.
+    $repeatRows   = $group && $isSingleRow;
     $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
 
-    // data-next-index seeds the "Add Row" JS so cloned rows get a fresh index.
-    $html        = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $rowInstances . '">';
-    $html       .= '<table>';
     $headerCells = $parseCsvLine($lines[0]);
-    $html       .= '<thead><tr>';
+    $colCount    = count($headerCells) + ($editable ? 1 : 0);
 
+    // Extract the backing field name of an input cell ([field|...] / {field} /
+    // bare name); returns null for label/header/plain-text cells.
+    $cellFieldName = static function (string $raw) use ($fieldMap): ?string {
+        $t = trim($raw);
+        if (preg_match('/^\{(.+)\}$/', $t, $m)) {
+            $k = trim($m[1]);
+
+            return isset($fieldMap[$k]) ? $k : null;
+        }
+        if (preg_match('/^\[(.+)\]$/', $t, $m)) {
+            $parts = array_map('trim', explode('|', $m[1]));
+            $type  = strtolower($parts[1] ?? 'input');
+            if ($type === 'label' || $type === 'header') {
+                return null;
+            }
+
+            return isset($fieldMap[$parts[0]]) ? $parts[0] : null;
+        }
+
+        return isset($fieldMap[$t]) ? $t : null;
+    };
+
+    // Build a grid of body cells with their resolved column position and spans so
+    // both block detection and rendering agree on the geometry.
+    $grid    = [];
+    $covered = [];
+    foreach ($bodyLines as $r => $line) {
+        $grid[$r] = [];
+        $col      = 0;
+        foreach ($parseCsvLine($line) as $cell) {
+            $col++;
+            while (!empty($covered[$r . ':' . $col])) {
+                $col++;
+            }
+
+            [$colSpan, $rowSpan] = $parseSpan($cell);
+            $grid[$r][] = ['raw' => $cell, 'col' => $col, 'colSpan' => $colSpan, 'rowSpan' => $rowSpan];
+
+            for ($ri = $r; $ri < $r + $rowSpan; $ri++) {
+                for ($ci = $col; $ci < $col + $colSpan; $ci++) {
+                    if ($ri !== $r || $ci !== $col) {
+                        $covered[$ri . ':' . $ci] = true;
+                    }
+                }
+            }
+
+            $col += $colSpan - 1;
+        }
+    }
+    $numBodyRows = count($bodyLines);
+
+    $emitRowCells = static function (array $rowCells, array $recValues, ?int $rowIndex) use ($renderCell): string {
+        $out = '';
+        foreach ($rowCells as $c) {
+            $attrs = ($c['colSpan'] > 1 ? ' colspan="' . $c['colSpan'] . '"' : '')
+                   . ($c['rowSpan'] > 1 ? ' rowspan="' . $c['rowSpan'] . '"' : '');
+            $out .= '<td' . $attrs . '>' . $renderCell($c['raw'], $recValues, $rowIndex) . '</td>';
+        }
+
+        return $out;
+    };
+
+    // ---- Editable: partition body rows into blocks bound together by rowspans ----
+    // A block is a maximal run of consecutive rows where no rowspan reaches past
+    // its end. Each block becomes one independently repeatable unit (its own
+    // "+ Add Row" button); cloning a block duplicates ALL of its rows so a
+    // spanning cell (e.g. a rowspan=3 cell over rows 1-3) is reproduced intact.
+    $blocks      = [];
+    $blockFields = [];
+    if ($editable) {
+        $r = 0;
+        while ($r < $numBodyRows) {
+            $end = $r;
+            for ($i = $r; $i <= $end && $i < $numBodyRows; $i++) {
+                foreach ($grid[$i] as $c) {
+                    $reach = $i + $c['rowSpan'] - 1;
+                    if ($reach > $end) {
+                        $end = $reach;
+                    }
+                }
+            }
+            if ($end >= $numBodyRows) {
+                $end = $numBodyRows - 1;
+            }
+            $bi          = count($blocks);
+            $blocks[$bi] = ['start' => $r, 'end' => $end];
+
+            $names = [];
+            for ($rr = $r; $rr <= $end; $rr++) {
+                foreach ($grid[$rr] as $c) {
+                    $fn = $cellFieldName($c['raw']);
+                    if ($fn !== null) {
+                        $names[$fn] = true;
+                    }
+                }
+            }
+            $blockFields[$bi] = array_keys($names);
+
+            $r = $end + 1;
+        }
+
+        // Route each saved record to the block it belongs to so an edit-load
+        // repeats each block once per saved instance. The submit transpose fills
+        // EVERY field key (empty string outside the block), so match on a NON-EMPTY
+        // value — each saved instance only fills its own block's fields.
+        $blockInstances = array_fill(0, count($blocks), []);
+        foreach ($savedRows as $rec) {
+            if (!is_array($rec)) {
+                continue;
+            }
+            foreach ($blocks as $bi => $b) {
+                foreach ($blockFields[$bi] as $fn) {
+                    if (isset($rec[$fn]) && trim((string) $rec[$fn]) !== '') {
+                        $blockInstances[$bi][] = $rec;
+                        continue 3;
+                    }
+                }
+            }
+        }
+
+        // Total instances rendered = the starting point for the "Add Row" JS so
+        // cloned block instances get fresh, section-unique row indexes.
+        $totalInstances = 0;
+        foreach ($blocks as $bi => $b) {
+            $totalInstances += max(1, count($blockInstances[$bi]));
+        }
+    } else {
+        $totalInstances = $rowInstances;
+    }
+
+    $html  = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $totalInstances . '">';
+    $html .= '<table>';
+    $html .= '<thead><tr>';
     foreach ($headerCells as $cell) {
         $html .= '<th>' . esc(trim($cell)) . '</th>';
     }
-
     if ($editable) {
         $html .= '<th class="rt-action-col">Action</th>';
     }
     $html .= '</tr></thead>';
 
-    $html .= '<tbody>';
-
-    // Cells hidden beneath a colspan/rowspan, keyed "outputRow:col". $outRow is a
-    // 1-based counter over every rendered <tr> (across repeated instances).
-    $covered = [];
-    $outRow  = 0;
-
-    for ($instance = 0; $instance < $rowInstances; $instance++) {
-        $rowValues = $repeatRows ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
-        if (!is_array($rowValues)) {
-            $rowValues = [];
-        }
-
-        // Repeatable rows are indexed (0,1,2,...); single records use null.
-        $rowIndex = $repeatRows ? $instance : null;
-
-        foreach ($bodyLines as $line) {
-            $outRow++;
-            $cells = $parseCsvLine($line);
-            $html .= '<tr class="rt-row">';
-
-            $col = 0;
-            foreach ($cells as $cell) {
-                $col++;
-                // Skip grid positions already occupied by a span from a prior cell/row.
-                while (!empty($covered[$outRow . ':' . $col])) {
-                    $col++;
-                }
-
-                [$colSpan, $rowSpan] = $parseSpan($cell);
-                $attrs = ($colSpan > 1 ? ' colspan="' . $colSpan . '"' : '')
-                       . ($rowSpan > 1 ? ' rowspan="' . $rowSpan . '"' : '');
-
-                $html .= '<td' . $attrs . '>' . $renderCell($cell, $rowValues, $rowIndex) . '</td>';
-
-                // Reserve the cells this span covers so later cells/rows skip them.
-                for ($ri = $outRow; $ri < $outRow + $rowSpan; $ri++) {
-                    for ($ci = $col; $ci < $col + $colSpan; $ci++) {
-                        if ($ri !== $outRow || $ci !== $col) {
-                            $covered[$ri . ':' . $ci] = true;
-                        }
-                    }
-                }
-
-                $col += $colSpan - 1;
-            }
-
-            if ($editable) {
-                $html .= '<td class="rt-action-col"><button type="button" class="rt-del" title="Remove row">&times;</button></td>';
-            }
-            $html .= '</tr>';
-        }
-    }
-
-    $html .= '</tbody>';
-    $html .= '</table>';
-
-    // Only editable tables let the end user add rows.
     if ($editable) {
-        $html .= '<div class="rt-add-wrap"><button type="button" class="rt-add">+ Add Row</button></div>';
+        $rowIndex = 0; // section-unique index; one per block instance, shared by its rows
+        foreach ($blocks as $bi => $b) {
+            $blockHeight = $b['end'] - $b['start'] + 1;
+            $instances   = max(1, count($blockInstances[$bi]));
+
+            $html .= '<tbody class="rt-block" data-block-rows="' . $blockHeight . '">';
+            for ($inst = 0; $inst < $instances; $inst++) {
+                $rec = $blockInstances[$bi][$inst] ?? [];
+                if (!is_array($rec)) {
+                    $rec = [];
+                }
+
+                for ($rr = $b['start']; $rr <= $b['end']; $rr++) {
+                    $html .= '<tr class="rt-row">';
+                    $html .= $emitRowCells($grid[$rr], $rec, $rowIndex);
+
+                    // One delete per block instance: an action cell on the first
+                    // row, spanning the whole block.
+                    if ($rr === $b['start']) {
+                        $html .= '<td class="rt-action-col" rowspan="' . $blockHeight . '">'
+                               . '<button type="button" class="rt-del" title="Remove">&times;</button></td>';
+                    }
+                    $html .= '</tr>';
+                }
+                $rowIndex++;
+            }
+
+            // One "Add Row" per block — clones this block's last instance intact.
+            $html .= '<tr class="rt-add-row"><td colspan="' . $colCount . '">'
+                   . '<button type="button" class="rt-add">+ Add Row</button></td></tr>';
+            $html .= '</tbody>';
+        }
+    } else {
+        $html .= '<tbody>';
+        for ($instance = 0; $instance < $rowInstances; $instance++) {
+            $rowValues = $repeatRows ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
+            if (!is_array($rowValues)) {
+                $rowValues = [];
+            }
+            $rowIndex = $repeatRows ? $instance : null;
+
+            foreach ($grid as $rowCells) {
+                $html .= '<tr class="rt-row">' . $emitRowCells($rowCells, $rowValues, $rowIndex) . '</tr>';
+            }
+        }
+        $html .= '</tbody>';
     }
 
+    $html .= '</table>';
     $html .= '</div>';
 
     return $html;
@@ -516,35 +634,74 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         }
 
-        document.querySelectorAll('.repeatable-table').forEach(function(wrap) {
-            var tbody = wrap.querySelector('tbody');
-            var addBtn = wrap.querySelector('.rt-add');
-            if (!tbody) return;
+        // The body is partitioned into blocks (one <tbody class="rt-block"> each).
+        // A block is the repeatable unit: data-block-rows is how many template rows
+        // it spans, so a rowspan group (e.g. 3 rows) clones/deletes as one unit.
+        function instanceRows(blockTbody) {
+            // The last instance = the last data-block-rows .rt-row elements.
+            var rows = Array.prototype.slice.call(blockTbody.querySelectorAll('.rt-row'));
+            var n = parseInt(blockTbody.getAttribute('data-block-rows') || '1', 10);
 
-            if (addBtn) {
-                addBtn.addEventListener('click', function() {
-                    var rows = tbody.querySelectorAll('.rt-row');
-                    if (!rows.length) return;
+            return { rows: rows, height: n };
+        }
 
-                    // Use a monotonic counter so indexes stay unique even after deletes.
-                    var nextIndex = parseInt(wrap.getAttribute('data-next-index') || rows.length, 10);
-                    var clone = rows[rows.length - 1].cloneNode(true);
-                    clearRow(clone);
-                    reindexRow(clone, nextIndex);
-                    tbody.appendChild(clone);
-                    wrap.setAttribute('data-next-index', nextIndex + 1);
-                });
+        // Collect a block instance starting at firstRow, spanning `height` rt-rows.
+        function rowsFrom(firstRow, height) {
+            var out = [firstRow];
+            var sib = firstRow;
+            for (var i = 1; i < height; i++) {
+                sib = sib.nextElementSibling;
+                if (sib && sib.classList.contains('rt-row')) {
+                    out.push(sib);
+                }
             }
 
-            tbody.addEventListener('click', function(e) {
-                var btn = e.target.closest('.rt-del');
-                if (!btn) return;
-                var rows = tbody.querySelectorAll('.rt-row');
-                if (rows.length <= 1) {
-                    clearRow(rows[0]); // keep at least one row
+            return out;
+        }
+
+        document.querySelectorAll('.repeatable-table').forEach(function(wrap) {
+            wrap.addEventListener('click', function(e) {
+                // --- Add Row (per block): clone the block's last instance intact ---
+                var addBtn = e.target.closest('.rt-add');
+                if (addBtn) {
+                    var block = addBtn.closest('.rt-block');
+                    if (!block) return;
+                    var info = instanceRows(block);
+                    if (!info.rows.length) return;
+
+                    var addRow   = block.querySelector('.rt-add-row');
+                    var nextIndex = parseInt(wrap.getAttribute('data-next-index') || '0', 10);
+                    var lastInstance = info.rows.slice(info.rows.length - info.height);
+
+                    lastInstance.forEach(function(row) {
+                        var clone = row.cloneNode(true);
+                        clearRow(clone);
+                        reindexRow(clone, nextIndex); // all rows of an instance share one index
+                        block.insertBefore(clone, addRow);
+                    });
+                    wrap.setAttribute('data-next-index', nextIndex + 1);
+
                     return;
                 }
-                btn.closest('.rt-row').remove();
+
+                // --- Delete (per block instance): remove all rows of that instance ---
+                var delBtn = e.target.closest('.rt-del');
+                if (delBtn) {
+                    var blk = delBtn.closest('.rt-block');
+                    if (!blk) return;
+                    var height = parseInt(blk.getAttribute('data-block-rows') || '1', 10);
+                    var firstRow = delBtn.closest('.rt-row');
+                    var allRows = blk.querySelectorAll('.rt-row');
+                    var instance = rowsFrom(firstRow, height);
+
+                    // Keep at least one instance per block — clear it instead of removing.
+                    if (allRows.length <= height) {
+                        instance.forEach(clearRow);
+
+                        return;
+                    }
+                    instance.forEach(function(r) { r.remove(); });
+                }
             });
         });
     })();
@@ -552,6 +709,19 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 <style>
     .rt-add-wrap {
         margin-top: 10px;
+    }
+
+    /* Per-block "Add Row" footer cell (one per rt-block tbody). */
+    .rt-add-row td {
+        padding: 8px;
+        text-align: left;
+        background: #f6f8fa;
+        border-top: 1px solid #e2e6ea;
+    }
+
+    /* Keep block tbodies visually distinct from one another. */
+    tbody.rt-block + tbody.rt-block {
+        border-top: 2px solid #d0d7de;
     }
 
     .rt-add {

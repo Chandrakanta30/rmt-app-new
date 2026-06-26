@@ -211,8 +211,18 @@ class Form extends Controller
                 foreach ($rowIndexes as $idx) {
                     $row = [];
                     foreach ($fields as $fieldName => $value) {
-                        // Array columns vary per row; scalar columns repeat on every row.
-                        $row[$fieldName] = is_array($value) ? ($value[$idx] ?? '') : $value;
+                        if (is_array($value)) {
+                            // Array columns vary per row. Only include this field when
+                            // it actually has a value at this index — otherwise it
+                            // belongs to a DIFFERENT block instance and padding it with
+                            // "" bloats the record with unrelated empty fields.
+                            if (array_key_exists($idx, $value)) {
+                                $row[$fieldName] = $value[$idx];
+                            }
+                        } else {
+                            // Scalar columns repeat on every row.
+                            $row[$fieldName] = $value;
+                        }
                     }
 
                     // Skip rows the user left completely blank.
