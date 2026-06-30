@@ -335,7 +335,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $out = '';
         foreach ($rowCells as $c) {
             $attrs = ($c['colSpan'] > 1 ? ' colspan="' . $c['colSpan'] . '"' : '')
-                   . ($c['rowSpan'] > 1 ? ' rowspan="' . $c['rowSpan'] . '"' : '');
+                . ($c['rowSpan'] > 1 ? ' rowspan="' . $c['rowSpan'] . '"' : '');
             $out .= '<td' . $attrs . '>' . $renderCell($c['raw'], $recValues, $rowIndex) . '</td>';
         }
 
@@ -442,7 +442,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
                     // row, spanning the whole block.
                     if ($rr === $b['start']) {
                         $html .= '<td class="rt-action-col" rowspan="' . $blockHeight . '">'
-                               . '<button type="button" class="rt-del" title="Remove">&times;</button></td>';
+                            . '<button type="button" class="rt-del" title="Remove">&times;</button></td>';
                     }
                     $html .= '</tr>';
                 }
@@ -451,7 +451,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
 
             // One "Add Row" per block — clones this block's last instance intact.
             $html .= '<tr class="rt-add-row"><td colspan="' . $colCount . '">'
-                   . '<button type="button" class="rt-add">+ Add Row</button></td></tr>';
+                . '<button type="button" class="rt-add">+ Add Row</button></td></tr>';
             $html .= '</tbody>';
         }
     } else {
@@ -566,7 +566,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     <div class="field-grid">
                         <?php foreach ($section['fields'] as $field): ?>
                             <?php
-                            $validation = json_decode($field['validation'], true) ?? [];
+                            $validation = json_decode($field['validation'] ?? 'null', true) ?? [];
                             $value = old('sections.' . $section['id'] . '.' . $field['name'])
                                 ?? ($values[$section['id']][$field['name']] ?? '');
                             ?>
@@ -642,7 +642,10 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             var rows = Array.prototype.slice.call(blockTbody.querySelectorAll('.rt-row'));
             var n = parseInt(blockTbody.getAttribute('data-block-rows') || '1', 10);
 
-            return { rows: rows, height: n };
+            return {
+                rows: rows,
+                height: n
+            };
         }
 
         // Collect a block instance starting at firstRow, spanning `height` rt-rows.
@@ -669,7 +672,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     var info = instanceRows(block);
                     if (!info.rows.length) return;
 
-                    var addRow   = block.querySelector('.rt-add-row');
+                    var addRow = block.querySelector('.rt-add-row');
                     var nextIndex = parseInt(wrap.getAttribute('data-next-index') || '0', 10);
                     var lastInstance = info.rows.slice(info.rows.length - info.height);
 
@@ -700,7 +703,9 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
                         return;
                     }
-                    instance.forEach(function(r) { r.remove(); });
+                    instance.forEach(function(r) {
+                        r.remove();
+                    });
                 }
             });
         });
@@ -720,7 +725,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     }
 
     /* Keep block tbodies visually distinct from one another. */
-    tbody.rt-block + tbody.rt-block {
+    tbody.rt-block+tbody.rt-block {
         border-top: 2px solid #d0d7de;
     }
 
