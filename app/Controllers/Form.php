@@ -70,17 +70,35 @@ class Form extends Controller
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
         foreach ($sections as $section) {
-            $table = $section['table']??'form_values';
-            if (empty($table)) {
-                continue;
-            }
-            $row = $db->table($table)
-                ->orderBy('id', 'DESC')
-                ->get()
-                ->getRowArray();
+            // Table-less sections store submissions in form_values (keyed by section_id);
+            // sections bound to a real table read their own latest row.
+            $table = !empty($section['table']) ? $section['table'] : 'form_values';
 
-            if ($row) {
-                $dataValues[$section['id']] = $section['table']?$row:json_decode($row['values'], true);
+            if ($table === 'form_values') {
+                $row = $db->table('form_values')
+                    ->where('section_id', $section['id'])
+                    ->orderBy('id', 'DESC')
+                    ->get()
+                    ->getRowArray();
+
+                if ($row) {
+                    // values is a JSON array of row objects for repeatable tables,
+                    // or a single object for grid/inline sections.
+                    $dataValues[$section['id']] = json_decode($row['values'], true);
+                }
+            } else {
+                if (!in_array($table, $db->listTables(), true)) {
+                    continue;
+                }
+
+                $row = $db->table($table)
+                    ->orderBy('id', 'DESC')
+                    ->get()
+                    ->getRowArray();
+
+                if ($row) {
+                    $dataValues[$section['id']] = $row;
+                }
             }
         }
 
@@ -107,55 +125,147 @@ class Form extends Controller
 
         $specialCharPattern = '/[^A-Za-z0-9\s]/';
 
+        // Checkboxes only submit a value ("1") when ticked; an unticked box is
+        // simply absent from the POST. Force every checkbox field to an explicit
+        // "1"/"0" so the stored value is never an ambiguous empty string.
+        $normalizeCheckboxes = static function (array $row, array $checkboxFields): array {
+            foreach ($checkboxFields as $cb) {
+                $row[$cb] = (isset($row[$cb]) && (string) $row[$cb] === '1') ? '1' : '0';
+            }
+
+            return $row;
+        };
+
         foreach ($sections as $sectionId => $fields) {
 
             $tableNames = $request->getPost('table_name');
             $form_id = $request->getPost('form_id');
             $table = is_array($tableNames) ? ($tableNames[$sectionId] ?? null) : $tableNames;
 
-            if($table === 'form_values'){
+            // Row-action mode: group/editable store many rows as an array;
+            // singular (and grid/inline) store a single record object.
+            $actionFlags = $request->getPost('action_flag');
+            $actionFlag  = is_array($actionFlags) ? strtolower($actionFlags[$sectionId] ?? '') : '';
+            $storeAsArray = in_array($actionFlag, ['group', 'editable'], true);
 
-                $data = [
-                    'form_id'  => $form_id[$sectionId],
-                    'section_id' => $sectionId,
-                    'values' => json_encode($request->getPost('sections')[$sectionId])
-                ];
-                $builder = $db->table('form_values');
-                $builder->insert($data);
-            }else{
-
-            // ⚠️ SECURITY: validate table name
-            $allowedTables = $db->listTables();
-            if (!$table || !in_array($table, $allowedTables, true)) {
-                continue;
-            }
-
-            $sectionFieldDefs = $fieldModel
-                ->where('section_id', $sectionId)
-                ->findAll();
-
-            $textLikeFieldNames = [];
+            // Field definitions for this section: used to coerce checkboxes to an
+            // explicit 1/0 and (for real tables) to validate text-like fields.
+            $sectionFieldDefs = $fieldModel->where('section_id', $sectionId)->findAll();
+            $checkboxFields   = [];
             foreach ($sectionFieldDefs as $fieldDef) {
-                $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
-                if (in_array($fieldType, ['text', 'search', 'tel', 'url', 'email'], true)) {
-                    $textLikeFieldNames[] = $fieldDef['name'];
+                if (strtolower((string) ($fieldDef['type'] ?? '')) === 'checkbox') {
+                    $checkboxFields[] = $fieldDef['name'];
                 }
             }
 
-            foreach ($fields as $fieldName => $value) {
-                if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
+            // Repeatable table layouts submit each column as an array
+            // (sections[sid][field][] -> [val0, val1, ...]). Detect that and
+            // transpose the columns back into one record per row.
+            $isRepeatable = false;
+            foreach ((array) $fields as $value) {
+                if (is_array($value)) {
+                    $isRepeatable = true;
+                    break;
+                }
+            }
+
+            if ($isRepeatable) {
+                // Inputs are indexed by row: sections[sid][field][rowIndex].
+                // Collect the actual row indexes used (an unchecked checkbox or a
+                // deleted row leaves gaps — iterating real keys keeps rows aligned).
+                $rowIndexes = [];
+                foreach ($fields as $value) {
+                    if (is_array($value)) {
+                        foreach (array_keys($value) as $idx) {
+                            $rowIndexes[$idx] = true;
+                        }
+                    }
+                }
+                $rowIndexes = array_keys($rowIndexes);
+                sort($rowIndexes, SORT_NUMERIC);
+
+                $rows = [];
+                foreach ($rowIndexes as $idx) {
+                    $row = [];
+                    foreach ($fields as $fieldName => $value) {
+                        // Array columns vary per row; scalar columns repeat on every row.
+                        $row[$fieldName] = is_array($value) ? ($value[$idx] ?? '') : $value;
+                    }
+
+                    // Skip rows the user left completely blank.
+                    $hasData = false;
+                    foreach ($row as $cell) {
+                        if (is_string($cell) ? trim($cell) !== '' : !empty($cell)) {
+                            $hasData = true;
+                            break;
+                        }
+                    }
+                    if ($hasData) {
+                        $rows[] = $row;
+                    }
+                }
+            } else {
+                $rows = [$fields]; // single record (grid / inline / fixed table)
+            }
+
+            if ($table === 'form_values' || empty($table)) {
+
+                // group/editable -> store every row as a JSON array (input 0, input 1, ...).
+                // singular / grid / inline -> keep a single record object.
+                // Coerce checkboxes to "1"/"0" on the rows we actually keep (done
+                // after the blank-row skip so an unticked box never revives a row).
+                if ($storeAsArray) {
+                    $payload = array_map(
+                        static fn(array $r) => $normalizeCheckboxes($r, $checkboxFields),
+                        $rows
+                    );
+                } else {
+                    $payload = $normalizeCheckboxes($rows[0] ?? [], $checkboxFields);
+                }
+
+                // Replace this section's previous record so the saved set always
+                // reflects the full current table (rows accumulate, no duplicates).
+                $db->table('form_values')->where('section_id', $sectionId)->delete();
+
+                $db->table('form_values')->insert([
+                    'form_id'    => $form_id[$sectionId] ?? null,
+                    'section_id' => $sectionId,
+                    'values'     => json_encode($payload),
+                ]);
+            } else {
+
+                // ⚠️ SECURITY: validate table name
+                $allowedTables = $db->listTables();
+                if (!in_array($table, $allowedTables, true)) {
                     continue;
                 }
 
-                if (preg_match($specialCharPattern, $value)) {
-                    return redirect()->back()->withInput()->with(
-                        'error',
-                        'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
-                    );
+                $textLikeFieldNames = [];
+                foreach ($sectionFieldDefs as $fieldDef) {
+                    $fieldType = strtolower((string) ($fieldDef['type'] ?? ''));
+                    if (in_array($fieldType, ['text', 'search', 'tel', 'url', 'email'], true)) {
+                        $textLikeFieldNames[] = $fieldDef['name'];
+                    }
                 }
-            }
 
-            $db->table($table)->insert($fields);
+                // Insert one DB row per submitted row.
+                foreach ($rows as $row) {
+                    $row = $normalizeCheckboxes($row, $checkboxFields);
+                    foreach ($row as $fieldName => $value) {
+                        if (!in_array($fieldName, $textLikeFieldNames, true) || !is_string($value) || $value === '') {
+                            continue;
+                        }
+
+                        if (preg_match($specialCharPattern, $value)) {
+                            return redirect()->back()->withInput()->with(
+                                'error',
+                                'Special characters are not allowed in "' . $fieldName . '". Use only letters, numbers, and spaces.'
+                            );
+                        }
+                    }
+
+                    $db->table($table)->insert($row);
+                }
             }
         }
 

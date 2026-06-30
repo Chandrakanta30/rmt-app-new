@@ -4,8 +4,10 @@
 
 <?= $this->section('content') ?>
 <?php
+// Only plain text/search inputs are restricted to letters/numbers/spaces.
+// email, url, tel legitimately need @ : + . etc., so they are NOT restricted.
 $isTextLikeType = static function (string $type): bool {
-    return in_array(strtolower($type), ['text', 'search', 'tel', 'url', 'email'], true);
+    return in_array(strtolower($type), ['text', 'search'], true);
 };
 
 $specialCharAttrs = static function (array $field) use ($isTextLikeType): string {
@@ -16,22 +18,125 @@ $specialCharAttrs = static function (array $field) use ($isTextLikeType): string
     return ' pattern="[A-Za-z0-9\\s]*" title="Only letters, numbers, and spaces are allowed." data-no-special="1"';
 };
 
-$renderTemplateInput = static function (array $field, array $section, array $values) use ($specialCharAttrs): string {
-    $validation = json_decode($field['validation'], true) ?? [];
-    $value = old('sections.' . $section['id'] . '.' . $field['name'])
-        ?? ($values[$section['id']][$field['name']] ?? '');
+// Normalize a field's stored options (JSON) into a [{value, label}, ...] list.
+// Handles both [{id,label}] objects (from the builder) and plain ["a","b"] arrays.
+$parseFieldOptions = static function ($raw): array {
+    $decoded = is_array($raw) ? $raw : json_decode((string) $raw, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
 
-    $label = esc($field['label'] ?? $field['name']);
+    $options = [];
+    foreach ($decoded as $opt) {
+        if (is_array($opt)) {
+            // Builder stores {id, label} where `id` is the value to save and
+            // `label` is shown. Prefer id (or an explicit `value`) for the value
+            // so we never accidentally save the label as the stored value.
+            $value = (string) ($opt['value'] ?? $opt['id'] ?? $opt['label'] ?? '');
+            $label = (string) ($opt['label'] ?? $opt['value'] ?? $opt['id'] ?? $value);
+        } else {
+            $label = (string) $opt;
+            $value = (string) $opt;
+        }
+        if ($label === '' && $value === '') {
+            continue;
+        }
+        $options[] = ['value' => $value, 'label' => $label];
+    }
+
+    return $options;
+};
+
+// Renders one form control for a field.
+// $rowIndex: when set (repeatable table rows) the input name is indexed
+//   sections[sid][field][0], [1], ... so each row submits as its own record
+//   and an unchecked checkbox simply leaves a gap instead of shifting rows.
+// $rowValues: the saved values for this specific row (used to prefill).
+$renderTemplateInput = static function (array $field, array $section, array $values, ?int $rowIndex = null, ?array $rowValues = null) use ($specialCharAttrs, $parseFieldOptions): string {
+    $validation = json_decode($field['validation'] ?? 'null', true) ?? [];
+
+    if ($rowValues !== null) {
+        // Repeatable table row: take the value for this specific row.
+        $value = $rowValues[$field['name']] ?? '';
+    } else {
+        $value = old('sections.' . $section['id'] . '.' . $field['name'])
+            ?? ($values[$section['id']][$field['name']] ?? '');
+    }
+
+    // Never echo an array as a scalar.
+    if (is_array($value)) {
+        $value = '';
+    }
+    $value = (string) $value;
+
+    $label    = esc($field['label'] ?? $field['name']);
     $required = !empty($validation['required']) ? ' required' : '';
-    $name     = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']';
     $type     = strtolower($field['type'] ?? 'text');
 
+    $name = 'sections[' . esc($section['id']) . '][' . esc($field['name']) . ']'
+        . ($rowIndex !== null ? '[' . (int) $rowIndex . ']' : '');
+
+    // --- DROPDOWN SELECT ---
+    if ($type === 'select') {
+        $options = $parseFieldOptions($field['options'] ?? null);
+
+        $html = '<span class="template-field template-field--select"><select name="' . $name . '"' . $required . '>';
+        $html .= '<option value="">-- Select --</option>';
+        foreach ($options as $opt) {
+            $selected = ($value !== '' && $value === $opt['value']) ? ' selected' : '';
+            $html .= '<option value="' . esc($opt['value']) . '"' . $selected . '>' . esc($opt['label']) . '</option>';
+        }
+        $html .= '</select></span>';
+
+        return $html;
+    }
+
+    // --- CHECKBOX --- (value "1" when checked; absent when unchecked)
+    if ($type === 'checkbox') {
+        $checked = ($value !== '' && $value !== '0') ? ' checked' : '';
+
+        return '<span class="template-field template-field--checkbox">'
+            . '<input type="checkbox" value="1" name="' . $name . '"' . $checked . $required . '></span>';
+    }
+
+    // --- TEXTAREA ---
     if ($type === 'textarea') {
         return '<span class="template-field template-field--textarea"><textarea name="' . $name . '"' . $required . '>' . esc($value) . '</textarea></span>';
     }
 
+    // --- MEASUREMENT --- free-form technical value: decimals, units, slashes,
+    // scientific notation (40.5 Kv, Kv/Ma, 1.54098×10⁰, "about 09 minutes").
+    // Rendered as text WITHOUT the letters/numbers/spaces restriction so any
+    // symbol is accepted.
+    if ($type === 'measurement') {
+        return '<span class="template-field template-field--measurement">(' . $label . ')'
+            . '<input type="text" inputmode="text" value="' . esc($value) . '" name="' . $name . '"' . $required . '></span>';
+    }
+
+    // --- TEXT / NUMBER / EMAIL / DATE / etc. ---
+    $allowedTypes = ['text', 'number', 'email', 'date', 'tel', 'url', 'search', 'time', 'datetime-local', 'password'];
+    if (!in_array($type, $allowedTypes, true)) {
+        $type = 'text';
+    }
+
     $specialValidation = $specialCharAttrs($field);
-    return '<span class="template-field">(' . $label . ')<input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $specialValidation . '></span>';
+
+    // Number inputs need an explicit step or browsers default to step=1 and
+    // reject decimals (23.45, 40.5). Honor an explicit step/min/max from the
+    // field's validation, otherwise allow any decimal.
+    $numericAttrs = '';
+    if ($type === 'number') {
+        $step = $validation['step'] ?? 'any';
+        $numericAttrs .= ' step="' . esc((string) $step) . '"';
+        if (isset($validation['min']) && $validation['min'] !== '') {
+            $numericAttrs .= ' min="' . esc((string) $validation['min']) . '"';
+        }
+        if (isset($validation['max']) && $validation['max'] !== '') {
+            $numericAttrs .= ' max="' . esc((string) $validation['max']) . '"';
+        }
+    }
+
+    return '<span class="template-field">(' . $label . ')<input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $numericAttrs . $specialValidation . '></span>';
 };
 
 // Parses one CSV line respecting quoted fields
@@ -73,7 +178,9 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $fieldMap[$field['name']] = $field;
     }
 
-    $renderCell = static function (string $raw) use ($fieldMap, $section, $values, $renderTemplateInput): string {
+    // Renders a single cell, prefilling input values from $rowValues (this row's saved data).
+    // $rowIndex indexes the input name for repeatable rows (null = single record).
+    $renderCell = static function (string $raw, array $rowValues, ?int $rowIndex) use ($fieldMap, $section, $values, $renderTemplateInput): string {
         $trimmed = trim($raw);
 
         if ($trimmed === '') {
@@ -84,7 +191,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
             $field = $fieldMap[trim($m[1])] ?? null;
             if ($field) {
-                return $renderTemplateInput($field, $section, $values);
+                return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
             }
         }
 
@@ -101,7 +208,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
             $field = $fieldMap[$fieldKey] ?? null;
 
             if ($field) {
-                return $renderTemplateInput($field, $section, $values);
+                return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
             }
         }
 
@@ -109,7 +216,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $field = $fieldMap[$trimmed] ?? null;
 
         if ($field) {
-            return $renderTemplateInput($field, $section, $values);
+            return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
         }
 
         return esc($trimmed);
@@ -124,7 +231,35 @@ $renderTableTemplate = static function (string $template, array $section, array 
         return '';
     }
 
-    $html        = '<table>';
+    // Normalize saved data into a list of row objects:
+    //  - repeatable table  -> [ {..row0..}, {..row1..} ]
+    //  - single record     -> [ {..fields..} ]
+    $saved     = $values[$section['id']] ?? [];
+    $savedRows = [];
+    if (is_array($saved) && !empty($saved)) {
+        $isList    = array_keys($saved) === range(0, count($saved) - 1);
+        $savedRows = $isList ? array_values($saved) : [$saved];
+    }
+
+    // Row-action mode for this section:
+    //   editable -> user can add / delete rows (shows + Add Row and the Action column)
+    //   group    -> multiple rows saved together, but no add/delete UI
+    //   singular -> a single record; anything else behaves the same (no add UI)
+    $actionFlag = strtolower($section['action_flag'] ?? '');
+    $editable   = $actionFlag === 'editable';
+    $group      = $actionFlag === 'group';
+
+    $bodyLines   = array_slice($lines, 1);
+    $isSingleRow = count($bodyLines) === 1;
+
+    // editable/group repeat a single-row template once per saved row; everything
+    // else (singular / unset / multi-row matrices) renders the template once.
+    $repeatRows   = ($editable || $group) && $isSingleRow;
+    $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
+
+    // data-next-index seeds the "Add Row" JS so cloned rows get a fresh index.
+    $html        = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $rowInstances . '">';
+    $html       .= '<table>';
     $headerCells = $parseCsvLine($lines[0]);
     $html       .= '<thead><tr>';
 
@@ -132,26 +267,46 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $html .= '<th>' . esc(trim($cell)) . '</th>';
     }
 
+    if ($editable) {
+        $html .= '<th class="rt-action-col">Action</th>';
+    }
     $html .= '</tr></thead>';
 
-    if (count($lines) > 1) {
-        $html .= '<tbody>';
+    $html .= '<tbody>';
 
-        for ($i = 1; $i < count($lines); $i++) {
-            $cells  = $parseCsvLine($lines[$i]);
-            $html  .= '<tr>';
-
-            foreach ($cells as $cell) {
-                $html .= '<td>' . $renderCell($cell) . '</td>';
-            }
-
-            $html .= '</tr>';
+    for ($instance = 0; $instance < $rowInstances; $instance++) {
+        $rowValues = $repeatRows ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
+        if (!is_array($rowValues)) {
+            $rowValues = [];
         }
 
-        $html .= '</tbody>';
+        // Repeatable rows are indexed (0,1,2,...); single records use null.
+        $rowIndex = $repeatRows ? $instance : null;
+
+        foreach ($bodyLines as $line) {
+            $cells = $parseCsvLine($line);
+            $html .= '<tr class="rt-row">';
+
+            foreach ($cells as $cell) {
+                $html .= '<td>' . $renderCell($cell, $rowValues, $rowIndex) . '</td>';
+            }
+
+            if ($editable) {
+                $html .= '<td class="rt-action-col"><button type="button" class="rt-del" title="Remove row">&times;</button></td>';
+            }
+            $html .= '</tr>';
+        }
     }
 
+    $html .= '</tbody>';
     $html .= '</table>';
+
+    // Only editable tables let the end user add rows.
+    if ($editable) {
+        $html .= '<div class="rt-add-wrap"><button type="button" class="rt-add">+ Add Row</button></div>';
+    }
+
+    $html .= '</div>';
 
     return $html;
 };
@@ -163,14 +318,28 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         $fieldMap[$field['name']] = $field;
     }
 
-    return preg_replace_callback('/\{(.*?)\}/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
-        $name = trim($matches[1]);
+    // Inline fields can be written either way:
+    //   {field}            — classic builder (/forms/create)
+    //   [field]            — drag & drop builder (/forms/builder)
+    //   [field|label] etc. — modifiers; label/header render as static text
+    return preg_replace_callback('/\{([^}]+)\}|\[([^\]]+)\]/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
+        // group 1 = {...}, group 2 = [...]
+        $token = ($matches[1] ?? '') !== '' ? $matches[1] : ($matches[2] ?? '');
 
-        // Exact match
-        if (isset($fieldMap[$name])) {
-            return $renderTemplateInput($fieldMap[$name], $section, $values);
+        $parts    = array_map('trim', explode('|', $token));
+        $fieldKey = $parts[0];
+        $cellType = strtolower($parts[1] ?? 'input');
+
+        // label/header modifier -> static text, not an input
+        if ($cellType === 'label' || $cellType === 'header') {
+            return esc($fieldKey);
         }
 
+        if (isset($fieldMap[$fieldKey])) {
+            return $renderTemplateInput($fieldMap[$fieldKey], $section, $values);
+        }
+
+        // Unknown token -> leave it exactly as written
         return $matches[0];
     }, $template);
 };
@@ -202,7 +371,9 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
 
 
-                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table']??'form_values') ?>">
+                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
+
+                <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]" value="<?= esc($section['action_flag'] ?? '') ?>">
 
                 <div class="section-panel-header">
                     <div>
@@ -276,5 +447,116 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         });
     })();
+
+    // Repeatable table rows: clone the last row (empty) on "Add Row", delete on "×".
+    (function() {
+        function clearRow(row) {
+            row.querySelectorAll('input, textarea, select').forEach(function(el) {
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    el.checked = false;
+                } else {
+                    el.value = '';
+                }
+                el.setCustomValidity('');
+            });
+        }
+
+        // Re-point a cloned row's field names to a fresh row index, e.g.
+        // sections[5][qty][2] -> sections[5][qty][7]. Only the trailing [n] changes.
+        function reindexRow(row, index) {
+            row.querySelectorAll('[name]').forEach(function(el) {
+                el.name = el.name.replace(/\[\d+\]$/, '[' + index + ']');
+            });
+        }
+
+        document.querySelectorAll('.repeatable-table').forEach(function(wrap) {
+            var tbody = wrap.querySelector('tbody');
+            var addBtn = wrap.querySelector('.rt-add');
+            if (!tbody) return;
+
+            if (addBtn) {
+                addBtn.addEventListener('click', function() {
+                    var rows = tbody.querySelectorAll('.rt-row');
+                    if (!rows.length) return;
+
+                    // Use a monotonic counter so indexes stay unique even after deletes.
+                    var nextIndex = parseInt(wrap.getAttribute('data-next-index') || rows.length, 10);
+                    var clone = rows[rows.length - 1].cloneNode(true);
+                    clearRow(clone);
+                    reindexRow(clone, nextIndex);
+                    tbody.appendChild(clone);
+                    wrap.setAttribute('data-next-index', nextIndex + 1);
+                });
+            }
+
+            tbody.addEventListener('click', function(e) {
+                var btn = e.target.closest('.rt-del');
+                if (!btn) return;
+                var rows = tbody.querySelectorAll('.rt-row');
+                if (rows.length <= 1) {
+                    clearRow(rows[0]); // keep at least one row
+                    return;
+                }
+                btn.closest('.rt-row').remove();
+            });
+        });
+    })();
 </script>
+<style>
+    .rt-add-wrap {
+        margin-top: 10px;
+    }
+
+    .rt-add {
+        background: #1f7a44;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .rt-add:hover {
+        background: #195f36;
+    }
+
+    .rt-del {
+        background: #d9534f;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        width: 30px;
+        height: 30px;
+        line-height: 1;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .rt-del:hover {
+        background: #b52b27;
+    }
+
+    td.rt-action-col,
+    th.rt-action-col {
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    /* Compact, centered checkbox so it doesn't hog the cell. */
+    .template-field--checkbox {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .template-field--checkbox input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        cursor: pointer;
+        accent-color: #1f7a44;
+    }
+</style>
 <?= $this->endSection() ?>
