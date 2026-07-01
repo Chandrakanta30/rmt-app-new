@@ -117,9 +117,19 @@ class Form extends Controller
         $fieldModel = new FieldModel();
 
         $sections = $request->getPost('sections');
+        $formIds  = $request->getPost('form_id');
 
+        // An unchecked checkbox submits NOTHING, so a section whose only input is
+        // an unticked checkbox is entirely absent from `sections` — which used to
+        // trip "No data submitted" and never record the 0. The hidden form_id[]
+        // input is always rendered per section, so use it to discover every
+        // section id even when that section posted no field values.
+        $sectionIds = is_array($sections) ? array_keys($sections) : [];
+        if (is_array($formIds)) {
+            $sectionIds = array_values(array_unique(array_merge($sectionIds, array_keys($formIds))));
+        }
 
-        if (!$sections) {
+        if (empty($sectionIds)) {
             return redirect()->back()->with('error', 'No data submitted');
         }
 
@@ -136,7 +146,12 @@ class Form extends Controller
             return $row;
         };
 
-        foreach ($sections as $sectionId => $fields) {
+        foreach ($sectionIds as $sectionId) {
+
+            // Whether this section actually posted any field values. A section
+            // absent from `sections` only made it here via the hidden form_id[].
+            $submitted = is_array($sections) && array_key_exists($sectionId, $sections);
+            $fields    = $submitted ? $sections[$sectionId] : [];
 
             $tableNames = $request->getPost('table_name');
             $form_id = $request->getPost('form_id');
@@ -156,6 +171,14 @@ class Form extends Controller
                 if (strtolower((string) ($fieldDef['type'] ?? '')) === 'checkbox') {
                     $checkboxFields[] = $fieldDef['name'];
                 }
+            }
+
+            // A section that posted nothing is only worth processing when it has
+            // checkbox fields to record as "0". Skip otherwise so we never wipe an
+            // untouched section with a blank record, and never inject a phantom
+            // row into an empty repeatable (editable/group) table.
+            if (!$submitted && (empty($checkboxFields) || $storeAsArray)) {
+                continue;
             }
 
             // Repeatable table layouts submit each column as an array
@@ -188,8 +211,18 @@ class Form extends Controller
                 foreach ($rowIndexes as $idx) {
                     $row = [];
                     foreach ($fields as $fieldName => $value) {
-                        // Array columns vary per row; scalar columns repeat on every row.
-                        $row[$fieldName] = is_array($value) ? ($value[$idx] ?? '') : $value;
+                        if (is_array($value)) {
+                            // Array columns vary per row. Only include this field when
+                            // it actually has a value at this index — otherwise it
+                            // belongs to a DIFFERENT block instance and padding it with
+                            // "" bloats the record with unrelated empty fields.
+                            if (array_key_exists($idx, $value)) {
+                                $row[$fieldName] = $value[$idx];
+                            }
+                        } else {
+                            // Scalar columns repeat on every row.
+                            $row[$fieldName] = $value;
+                        }
                     }
 
                     // Skip rows the user left completely blank.
