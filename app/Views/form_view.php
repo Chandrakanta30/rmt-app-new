@@ -291,13 +291,6 @@ $renderTableTemplate = static function (string $template, array $section, array 
     };
 
     // ---- Header rows: usually 1, but support a STACKED (multi-row) header -----
-    // A stacked header is a grouping row (with colspan/rowspan cells) sitting over
-    // one or more rows of sub-column headers — e.g. "STD Conc (ppm)" spanning 4
-    // columns with Li/Al/V/Cr underneath. Those sub-header rows are entirely
-    // static and only appear when the first row actually spans, so: when the first
-    // header row has a spanning cell, absorb every following all-static row into
-    // the header. A flat header (no spans) stays a single row, so a static first
-    // body row is still treated as a divider (e.g. "Intermediate precision").
     $rowAllStatic = function (string $line) use ($cellFieldName, $parseCsvLine): bool {
         $blank = true;
         foreach ($parseCsvLine($line) as $c) {
@@ -306,7 +299,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
             }
             $blank = false;
             if ($cellFieldName($c) !== null) {
-                return false; // a real input -> this is a body row, not a header
+                return false;
             }
         }
 
@@ -386,8 +379,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
     }
 
     // Column geometry. The body can have MORE columns than the header row when a
-    // header cell spans several body columns (e.g. "Linearity Levels" grouping a
-    // label column + a levels column). Use the widest of header vs. body so the
+    // header cell spans several body columns. Use the widest of header vs. body so the
     // <thead>, the data rows and the full-width separators/Add-Row all line up.
     $bodyCols = 0;
     foreach ($grid as $rowCells) {
@@ -397,8 +389,8 @@ $renderTableTemplate = static function (string $template, array $section, array 
     }
 
     // Build the header grid honoring colspan/rowspan across ALL header rows, so a
-    // grouping header ("STD Conc (ppm)") spans its columns and the sub-header row
-    // (Li/Al/V/Cr) sits beneath it — matching the builder preview.
+    // grouping headerspans its columns and the sub-header row
+    // sits beneath it — matching the builder preview.
     $headerGrid = [];
     $headerCols = 0;
     $hCovered   = [];
