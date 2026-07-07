@@ -268,17 +268,6 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $editable   = $actionFlag === 'editable';
     $group      = $actionFlag === 'group';
 
-    $bodyLines   = array_slice($lines, 1);
-    $isSingleRow = count($bodyLines) === 1;
-
-    // group (non-editable) repeats a single-row template once per saved row;
-    // singular / unset / multi-row matrices render once. Editable tables use the
-    // block-aware path below instead.
-    $repeatRows   = $group && $isSingleRow;
-    $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
-
-    $headerCells = $parseCsvLine($lines[0]);
-
     // Extract the backing field name of an input cell ([field|...] / {field} /
     // bare name); returns null for label/header/plain-text cells.
     $cellFieldName = static function (string $raw) use ($fieldMap): ?string {
@@ -300,6 +289,55 @@ $renderTableTemplate = static function (string $template, array $section, array 
 
         return isset($fieldMap[$t]) ? $t : null;
     };
+
+    // ---- Header rows: usually 1, but support a STACKED (multi-row) header -----
+    // A stacked header is a grouping row (with colspan/rowspan cells) sitting over
+    // one or more rows of sub-column headers — e.g. "STD Conc (ppm)" spanning 4
+    // columns with Li/Al/V/Cr underneath. Those sub-header rows are entirely
+    // static and only appear when the first row actually spans, so: when the first
+    // header row has a spanning cell, absorb every following all-static row into
+    // the header. A flat header (no spans) stays a single row, so a static first
+    // body row is still treated as a divider (e.g. "Intermediate precision").
+    $rowAllStatic = function (string $line) use ($cellFieldName, $parseCsvLine): bool {
+        $blank = true;
+        foreach ($parseCsvLine($line) as $c) {
+            if (trim($c) === '') {
+                continue;
+            }
+            $blank = false;
+            if ($cellFieldName($c) !== null) {
+                return false; // a real input -> this is a body row, not a header
+            }
+        }
+
+        return !$blank;
+    };
+
+    $firstHeaderSpans = false;
+    foreach ($parseCsvLine($lines[0]) as $c) {
+        [$cs, $rs] = $parseSpan($c);
+        if ($cs > 1 || $rs > 1) {
+            $firstHeaderSpans = true;
+            break;
+        }
+    }
+
+    $headerLineCount = 1;
+    if ($firstHeaderSpans) {
+        while ($headerLineCount < count($lines) && $rowAllStatic($lines[$headerLineCount])) {
+            $headerLineCount++;
+        }
+    }
+    $headerLines = array_slice($lines, 0, $headerLineCount);
+
+    $bodyLines   = array_slice($lines, $headerLineCount);
+    $isSingleRow = count($bodyLines) === 1;
+
+    // group (non-editable) repeats a single-row template once per saved row;
+    // singular / unset / multi-row matrices render once. Editable tables use the
+    // block-aware path below instead.
+    $repeatRows   = $group && $isSingleRow;
+    $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
 
     // Build a grid of body cells with their resolved column position and spans so
     // both block detection and rendering agree on the geometry.
@@ -358,24 +396,48 @@ $renderTableTemplate = static function (string $template, array $section, array 
         }
     }
 
-    // Parse the header row honoring [text|header|c2] span/label tokens so a
-    // grouping header spans its sub-columns instead of rendering 1x1.
-    $headerParsed = [];
-    $headerColSum = 0;
-    foreach ($headerCells as $hc) {
-        [$hcSpan] = $parseSpan($hc);
-        $text = trim($hc);
-        if (preg_match('/^\{(.+)\}$/', $text, $hm)) {
-            $text = trim($hm[1]);
-        } elseif (preg_match('/^\[(.+)\]$/', $text, $hm)) {
-            $parts = array_map('trim', explode('|', $hm[1]));
-            $text  = $parts[0];
+    // Build the header grid honoring colspan/rowspan across ALL header rows, so a
+    // grouping header ("STD Conc (ppm)") spans its columns and the sub-header row
+    // (Li/Al/V/Cr) sits beneath it — matching the builder preview.
+    $headerGrid = [];
+    $headerCols = 0;
+    $hCovered   = [];
+    foreach ($headerLines as $hr => $line) {
+        $headerGrid[$hr] = [];
+        $col             = 0;
+        foreach ($parseCsvLine($line) as $cell) {
+            $col++;
+            while (!empty($hCovered[$hr . ':' . $col])) {
+                $col++;
+            }
+
+            [$hcSpan, $hrSpan] = $parseSpan($cell);
+
+            // Header display text: strip the [text|header|c2] / {name} wrappers.
+            $text = trim($cell);
+            if (preg_match('/^\{(.+)\}$/', $text, $hm)) {
+                $text = trim($hm[1]);
+            } elseif (preg_match('/^\[(.+)\]$/', $text, $hm)) {
+                $parts = array_map('trim', explode('|', $hm[1]));
+                $text  = $parts[0];
+            }
+
+            $headerGrid[$hr][] = ['text' => $text, 'col' => $col, 'colSpan' => $hcSpan, 'rowSpan' => $hrSpan];
+            $headerCols        = max($headerCols, $col + $hcSpan - 1);
+
+            for ($ri = $hr; $ri < $hr + $hrSpan; $ri++) {
+                for ($ci = $col; $ci < $col + $hcSpan; $ci++) {
+                    if ($ri !== $hr || $ci !== $col) {
+                        $hCovered[$ri . ':' . $ci] = true;
+                    }
+                }
+            }
+
+            $col += $hcSpan - 1;
         }
-        $headerParsed[] = ['text' => $text, 'colSpan' => $hcSpan];
-        $headerColSum  += $hcSpan;
     }
 
-    $dataCols  = max($headerColSum, $bodyCols, 1);
+    $dataCols  = max($headerCols, $bodyCols, 1);
     $totalCols = $dataCols + ($editable ? 1 : 0);
 
     $emitRowCells = static function (array $rowCells, array $recValues, ?int $rowIndex) use ($renderCell): string {
@@ -479,15 +541,22 @@ $renderTableTemplate = static function (string $template, array $section, array 
 
     $html  = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $totalInstances . '">';
     $html .= '<table>';
-    $html .= '<thead><tr>';
-    foreach ($headerParsed as $h) {
-        $cs = $h['colSpan'] > 1 ? ' colspan="' . $h['colSpan'] . '"' : '';
-        $html .= '<th' . $cs . '>' . esc($h['text']) . '</th>';
+    $html .= '<thead>';
+    foreach ($headerGrid as $hr => $cells) {
+        $html .= '<tr>';
+        foreach ($cells as $h) {
+            $attrs = ($h['colSpan'] > 1 ? ' colspan="' . $h['colSpan'] . '"' : '')
+                . ($h['rowSpan'] > 1 ? ' rowspan="' . $h['rowSpan'] . '"' : '');
+            $html .= '<th' . $attrs . '>' . esc($h['text']) . '</th>';
+        }
+        // The Action column header spans every header row, once, on the first row.
+        if ($editable && $hr === 0) {
+            $rs = count($headerLines) > 1 ? ' rowspan="' . count($headerLines) . '"' : '';
+            $html .= '<th class="rt-action-col"' . $rs . '>Action</th>';
+        }
+        $html .= '</tr>';
     }
-    if ($editable) {
-        $html .= '<th class="rt-action-col">Action</th>';
-    }
-    $html .= '</tr></thead>';
+    $html .= '</thead>';
 
     if ($editable) {
         $rowIndex = 0; // section-unique index; one per block instance, shared by its rows
