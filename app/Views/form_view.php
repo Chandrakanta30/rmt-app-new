@@ -278,7 +278,6 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
 
     $headerCells = $parseCsvLine($lines[0]);
-    $colCount    = count($headerCells) + ($editable ? 1 : 0);
 
     // Extract the backing field name of an input cell ([field|...] / {field} /
     // bare name); returns null for label/header/plain-text cells.
@@ -331,6 +330,54 @@ $renderTableTemplate = static function (string $template, array $section, array 
     }
     $numBodyRows = count($bodyLines);
 
+    // A body row is a "separator" (a full-width sub-header, e.g. a
+    // [Method precision|header|c2] divider) when NONE of its cells is backed by
+    // an input field. Separators render across the whole table, are never part
+    // of a repeatable block, and get no "+ Add Row" / delete control — they just
+    // break the data rows into independent groups.
+    $rowIsSeparator = [];
+    for ($r = 0; $r < $numBodyRows; $r++) {
+        $hasInput = false;
+        foreach ($grid[$r] as $c) {
+            if ($cellFieldName($c['raw']) !== null) {
+                $hasInput = true;
+                break;
+            }
+        }
+        $rowIsSeparator[$r] = !$hasInput;
+    }
+
+    // Column geometry. The body can have MORE columns than the header row when a
+    // header cell spans several body columns (e.g. "Linearity Levels" grouping a
+    // label column + a levels column). Use the widest of header vs. body so the
+    // <thead>, the data rows and the full-width separators/Add-Row all line up.
+    $bodyCols = 0;
+    foreach ($grid as $rowCells) {
+        foreach ($rowCells as $c) {
+            $bodyCols = max($bodyCols, $c['col'] + $c['colSpan'] - 1);
+        }
+    }
+
+    // Parse the header row honoring [text|header|c2] span/label tokens so a
+    // grouping header spans its sub-columns instead of rendering 1x1.
+    $headerParsed = [];
+    $headerColSum = 0;
+    foreach ($headerCells as $hc) {
+        [$hcSpan] = $parseSpan($hc);
+        $text = trim($hc);
+        if (preg_match('/^\{(.+)\}$/', $text, $hm)) {
+            $text = trim($hm[1]);
+        } elseif (preg_match('/^\[(.+)\]$/', $text, $hm)) {
+            $parts = array_map('trim', explode('|', $hm[1]));
+            $text  = $parts[0];
+        }
+        $headerParsed[] = ['text' => $text, 'colSpan' => $hcSpan];
+        $headerColSum  += $hcSpan;
+    }
+
+    $dataCols  = max($headerColSum, $bodyCols, 1);
+    $totalCols = $dataCols + ($editable ? 1 : 0);
+
     $emitRowCells = static function (array $rowCells, array $recValues, ?int $rowIndex) use ($renderCell): string {
         $out = '';
         foreach ($rowCells as $c) {
@@ -347,11 +394,22 @@ $renderTableTemplate = static function (string $template, array $section, array 
     // its end. Each block becomes one independently repeatable unit (its own
     // "+ Add Row" button); cloning a block duplicates ALL of its rows so a
     // spanning cell (e.g. a rowspan=3 cell over rows 1-3) is reproduced intact.
+    // $segments is the ordered render plan: separator rows and repeatable blocks
+    // interleaved in the order they appear, so a "Method precision" divider stays
+    // between its groups instead of being swallowed into one.
     $blocks      = [];
     $blockFields = [];
+    $segments    = [];
     if ($editable) {
         $r = 0;
         while ($r < $numBodyRows) {
+            // A separator row renders standalone and resets block partitioning.
+            if ($rowIsSeparator[$r]) {
+                $segments[] = ['type' => 'sep', 'row' => $r];
+                $r++;
+                continue;
+            }
+
             $end = $r;
             for ($i = $r; $i <= $end && $i < $numBodyRows; $i++) {
                 foreach ($grid[$i] as $c) {
@@ -364,8 +422,17 @@ $renderTableTemplate = static function (string $template, array $section, array 
             if ($end >= $numBodyRows) {
                 $end = $numBodyRows - 1;
             }
+            // A block never crosses a separator row — stop just before one.
+            for ($k = $r + 1; $k <= $end; $k++) {
+                if ($rowIsSeparator[$k]) {
+                    $end = $k - 1;
+                    break;
+                }
+            }
+
             $bi          = count($blocks);
             $blocks[$bi] = ['start' => $r, 'end' => $end];
+            $segments[]  = ['type' => 'block', 'index' => $bi];
 
             $names = [];
             for ($rr = $r; $rr <= $end; $rr++) {
@@ -413,8 +480,9 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $html  = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $totalInstances . '">';
     $html .= '<table>';
     $html .= '<thead><tr>';
-    foreach ($headerCells as $cell) {
-        $html .= '<th>' . esc(trim($cell)) . '</th>';
+    foreach ($headerParsed as $h) {
+        $cs = $h['colSpan'] > 1 ? ' colspan="' . $h['colSpan'] . '"' : '';
+        $html .= '<th' . $cs . '>' . esc($h['text']) . '</th>';
     }
     if ($editable) {
         $html .= '<th class="rt-action-col">Action</th>';
@@ -423,7 +491,24 @@ $renderTableTemplate = static function (string $template, array $section, array 
 
     if ($editable) {
         $rowIndex = 0; // section-unique index; one per block instance, shared by its rows
-        foreach ($blocks as $bi => $b) {
+        foreach ($segments as $seg) {
+            // --- Separator: a full-width static sub-header (no block, no Add Row) ---
+            if ($seg['type'] === 'sep') {
+                $text = '';
+                foreach ($grid[$seg['row']] as $c) {
+                    $piece = $renderCell($c['raw'], [], null);
+                    if (trim($piece) !== '') {
+                        $text .= ($text === '' ? '' : ' ') . $piece;
+                    }
+                }
+                $html .= '<tbody class="rt-sep"><tr>'
+                    . '<td class="rt-sep-cell" colspan="' . $totalCols . '">' . $text . '</td>'
+                    . '</tr></tbody>';
+                continue;
+            }
+
+            $bi          = $seg['index'];
+            $b           = $blocks[$bi];
             $blockHeight = $b['end'] - $b['start'] + 1;
             $instances   = max(1, count($blockInstances[$bi]));
 
@@ -450,7 +535,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
             }
 
             // One "Add Row" per block — clones this block's last instance intact.
-            $html .= '<tr class="rt-add-row"><td colspan="' . $colCount . '">'
+            $html .= '<tr class="rt-add-row"><td colspan="' . $totalCols . '">'
                 . '<button type="button" class="rt-add">+ Add Row</button></td></tr>';
             $html .= '</tbody>';
         }
@@ -727,6 +812,17 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     /* Keep block tbodies visually distinct from one another. */
     tbody.rt-block+tbody.rt-block {
         border-top: 2px solid #d0d7de;
+    }
+
+    /* Full-width sub-header divider inside a table body (e.g. "Method precision").
+       Not a data row: no inputs, no Add Row, no delete. */
+    .rt-sep-cell {
+        background: #eef2f6;
+        font-weight: 700;
+        text-align: left;
+        padding: 10px 12px;
+        border-top: 2px solid #d0d7de;
+        color: #1f2d3d;
     }
 
     .rt-add {
