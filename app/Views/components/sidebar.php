@@ -1,4 +1,5 @@
 <!-- Side Navigation Bar -->
+<?php helper('auth'); ?>
 <nav class="sidebar">
     <div class="sidebar-header">
         <div class="sidebar-logo">
@@ -9,92 +10,41 @@
 
     <ul class="sidebar-nav">
         <li class="nav-item">
-            <a href="<?= base_url('dashboard') ?>" class="nav-link <?= (url_is('dashboard*')) ? 'active' : '' ?>">
+            <a href="<?= base_url('dashboard') ?>" class="nav-link <?= (url_is('dashboard*') || url_is('/')) ? 'active' : '' ?>">
                 <span class="nav-icon">D</span>
                 <span class="nav-title">Dashboard</span>
             </a>
         </li>
-        <li class="nav-item">
-            <a href="<?= base_url('forms') ?>"
-                class="nav-link <?= (url_is('forms*') || url_is('form*')) ? 'active' : '' ?>">
-                <span class="nav-icon">F</span>
-                <span class="nav-title">Forms</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('intermediate-precision') ?>"
-                class="nav-link <?= (url_is('intermediate-precision*')) ? 'active' : '' ?>">
-                <span class="nav-icon">📐</span>
-                <span class="nav-title">Intermediate Precision</span>
-            </a>
-        </li>
-        <!-- <li class="nav-divider">VALIDATION PARAMETERS</li>
-        <li class="nav-item">
-            <a href="<?= base_url('accuracy') ?>" class="nav-link <?= (url_is('accuracy*')) ? 'active' : '' ?>">
-                <span class="nav-icon">🎯</span>
-                <span class="nav-title">Accuracy</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('system-precision') ?>" class="nav-link <?= (url_is('system-precision*')) ? 'active' : '' ?>">
-                <span class="nav-icon">⚙️</span>
-                <span class="nav-title">System Precision</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('specificity') ?>" class="nav-link <?= (url_is('specificity*')) ? 'active' : '' ?>">
-                <span class="nav-icon">🔍</span>
-                <span class="nav-title">Specificity</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('intermediate-precision') ?>" class="nav-link <?= (url_is('intermediate-precision*')) ? 'active' : '' ?>">
-                <span class="nav-icon">📐</span>
-                <span class="nav-title">Intermediate Precision</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('lod') ?>" class="nav-link <?= (url_is('lod*')) ? 'active' : '' ?>">
-                <span class="nav-icon">🔬</span>
-                <span class="nav-title">Establishment of LOD</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('linearity') ?>" class="nav-link <?= (url_is('linearity*')) ? 'active' : '' ?>">
-                <span class="nav-icon">📈</span>
-                <span class="nav-title">Linearity</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('method-precision') ?>" class="nav-link <?= (url_is('method-precision*')) ? 'active' : '' ?>">
-                <span class="nav-icon">🧪</span>
-                <span class="nav-title">Method Precision</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('solution-stability') ?>" class="nav-link <?= (url_is('solution-stability*')) ? 'active' : '' ?>">
-                <span class="nav-icon">⏱️</span>
-                <span class="nav-title">Solution Stability</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('system-suitability') ?>" class="nav-link <?= (url_is('system-suitability*')) ? 'active' : '' ?>">
-                <span class="nav-icon">✅</span>
-                <span class="nav-title">System Suitability</span>
-            </a>
-        </li>
-        <li class="nav-divider">REPORTS</li>
-        <li class="nav-item">
-            <a href="<?= base_url('validation-reports') ?>" class="nav-link">
-                <span class="nav-icon">📋</span>
-                <span class="nav-title">Validation Reports</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= base_url('analytical-records') ?>" class="nav-link">
-                <span class="nav-icon">📄</span>
-                <span class="nav-title">Analytical Records</span>
-            </a>
-        </li>
-    </ul> -->
+        
+        <?php if (has_permission('view_forms')): ?>
+            <li class="nav-item">
+                <a href="<?= base_url('forms') ?>" class="nav-link <?= (url_is('forms*') || url_is('form*')) ? 'active' : '' ?>">
+                    <span class="nav-icon">F</span>
+                    <span class="nav-title">Forms</span>
+                </a>
+            </li>
+        <?php endif; ?>
+
+        <?php if (has_permission('manage_users') || has_permission('manage_roles')): ?>
+            <li class="nav-divider">Administration</li>
+            
+            <?php if (has_permission('manage_users')): ?>
+                <li class="nav-item">
+                    <a href="<?= base_url('users') ?>" class="nav-link <?= (url_is('users*')) ? 'active' : '' ?>">
+                        <span class="nav-icon">U</span>
+                        <span class="nav-title">Users</span>
+                    </a>
+                </li>
+            <?php endif; ?>
+            
+            <?php if (has_permission('manage_roles') || has_permission('manage_permissions')): ?>
+                <li class="nav-item">
+                    <a href="<?= base_url('roles') ?>" class="nav-link <?= (url_is('roles*') || url_is('permissions*')) ? 'active' : '' ?>">
+                        <span class="nav-icon">R</span>
+                        <span class="nav-title">Roles & Perms</span>
+                    </a>
+                </li>
+            <?php endif; ?>
+        <?php endif; ?>
+    </ul>
 </nav>

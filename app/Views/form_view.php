@@ -222,6 +222,25 @@ $renderTableTemplate = static function (string $template, array $section, array 
         return esc($trimmed);
     };
 
+    // Extract |c#|r# span markers from a [field|...] cell token (1 = no span).
+    $parseSpan = static function (string $raw): array {
+        $colSpan = 1;
+        $rowSpan = 1;
+        $trimmed = trim($raw);
+
+        if (preg_match('/^\[(.+)\]$/', $trimmed, $m)) {
+            foreach (array_map('trim', explode('|', $m[1])) as $part) {
+                if (preg_match('/^c(\d+)$/i', $part, $cm)) {
+                    $colSpan = max(1, min(12, (int) $cm[1]));
+                } elseif (preg_match('/^r(\d+)$/i', $part, $rm)) {
+                    $rowSpan = max(1, min(50, (int) $rm[1]));
+                }
+            }
+        }
+
+        return [$colSpan, $rowSpan];
+    };
+
     $lines = array_values(array_filter(
         explode("\n", str_replace("\r\n", "\n", $template)),
         fn($l) => trim($l) !== ''
@@ -249,63 +268,355 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $editable   = $actionFlag === 'editable';
     $group      = $actionFlag === 'group';
 
-    $bodyLines   = array_slice($lines, 1);
+    // Extract the backing field name of an input cell ([field|...] / {field} /
+    // bare name); returns null for label/header/plain-text cells.
+    $cellFieldName = static function (string $raw) use ($fieldMap): ?string {
+        $t = trim($raw);
+        if (preg_match('/^\{(.+)\}$/', $t, $m)) {
+            $k = trim($m[1]);
+
+            return isset($fieldMap[$k]) ? $k : null;
+        }
+        if (preg_match('/^\[(.+)\]$/', $t, $m)) {
+            $parts = array_map('trim', explode('|', $m[1]));
+            $type  = strtolower($parts[1] ?? 'input');
+            if ($type === 'label' || $type === 'header') {
+                return null;
+            }
+
+            return isset($fieldMap[$parts[0]]) ? $parts[0] : null;
+        }
+
+        return isset($fieldMap[$t]) ? $t : null;
+    };
+
+    // ---- Header rows: usually 1, but support a STACKED (multi-row) header -----
+    $rowAllStatic = function (string $line) use ($cellFieldName, $parseCsvLine): bool {
+        $blank = true;
+        foreach ($parseCsvLine($line) as $c) {
+            if (trim($c) === '') {
+                continue;
+            }
+            $blank = false;
+            if ($cellFieldName($c) !== null) {
+                return false;
+            }
+        }
+
+        return !$blank;
+    };
+
+    $firstHeaderSpans = false;
+    foreach ($parseCsvLine($lines[0]) as $c) {
+        [$cs, $rs] = $parseSpan($c);
+        if ($cs > 1 || $rs > 1) {
+            $firstHeaderSpans = true;
+            break;
+        }
+    }
+
+    $headerLineCount = 1;
+    if ($firstHeaderSpans) {
+        while ($headerLineCount < count($lines) && $rowAllStatic($lines[$headerLineCount])) {
+            $headerLineCount++;
+        }
+    }
+    $headerLines = array_slice($lines, 0, $headerLineCount);
+
+    $bodyLines   = array_slice($lines, $headerLineCount);
     $isSingleRow = count($bodyLines) === 1;
 
-    // editable/group repeat a single-row template once per saved row; everything
-    // else (singular / unset / multi-row matrices) renders the template once.
-    $repeatRows   = ($editable || $group) && $isSingleRow;
+    // group (non-editable) repeats a single-row template once per saved row;
+    // singular / unset / multi-row matrices render once. Editable tables use the
+    // block-aware path below instead.
+    $repeatRows   = $group && $isSingleRow;
     $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
 
-    // data-next-index seeds the "Add Row" JS so cloned rows get a fresh index.
-    $html        = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $rowInstances . '">';
-    $html       .= '<table>';
-    $headerCells = $parseCsvLine($lines[0]);
-    $html       .= '<thead><tr>';
+    // Build a grid of body cells with their resolved column position and spans so
+    // both block detection and rendering agree on the geometry.
+    $grid    = [];
+    $covered = [];
+    foreach ($bodyLines as $r => $line) {
+        $grid[$r] = [];
+        $col      = 0;
+        foreach ($parseCsvLine($line) as $cell) {
+            $col++;
+            while (!empty($covered[$r . ':' . $col])) {
+                $col++;
+            }
 
-    foreach ($headerCells as $cell) {
-        $html .= '<th>' . esc(trim($cell)) . '</th>';
+            [$colSpan, $rowSpan] = $parseSpan($cell);
+            $grid[$r][] = ['raw' => $cell, 'col' => $col, 'colSpan' => $colSpan, 'rowSpan' => $rowSpan];
+
+            for ($ri = $r; $ri < $r + $rowSpan; $ri++) {
+                for ($ci = $col; $ci < $col + $colSpan; $ci++) {
+                    if ($ri !== $r || $ci !== $col) {
+                        $covered[$ri . ':' . $ci] = true;
+                    }
+                }
+            }
+
+            $col += $colSpan - 1;
+        }
     }
+    $numBodyRows = count($bodyLines);
+
+    // A body row is a "separator" (a full-width sub-header, e.g. a
+    // [Method precision|header|c2] divider) when NONE of its cells is backed by
+    // an input field. Separators render across the whole table, are never part
+    // of a repeatable block, and get no "+ Add Row" / delete control — they just
+    // break the data rows into independent groups.
+    $rowIsSeparator = [];
+    for ($r = 0; $r < $numBodyRows; $r++) {
+        $hasInput = false;
+        foreach ($grid[$r] as $c) {
+            if ($cellFieldName($c['raw']) !== null) {
+                $hasInput = true;
+                break;
+            }
+        }
+        $rowIsSeparator[$r] = !$hasInput;
+    }
+
+    // Column geometry. The body can have MORE columns than the header row when a
+    // header cell spans several body columns. Use the widest of header vs. body so the
+    // <thead>, the data rows and the full-width separators/Add-Row all line up.
+    $bodyCols = 0;
+    foreach ($grid as $rowCells) {
+        foreach ($rowCells as $c) {
+            $bodyCols = max($bodyCols, $c['col'] + $c['colSpan'] - 1);
+        }
+    }
+
+    // Build the header grid honoring colspan/rowspan across ALL header rows, so a
+    // grouping headerspans its columns and the sub-header row
+    // sits beneath it — matching the builder preview.
+    $headerGrid = [];
+    $headerCols = 0;
+    $hCovered   = [];
+    foreach ($headerLines as $hr => $line) {
+        $headerGrid[$hr] = [];
+        $col             = 0;
+        foreach ($parseCsvLine($line) as $cell) {
+            $col++;
+            while (!empty($hCovered[$hr . ':' . $col])) {
+                $col++;
+            }
+
+            [$hcSpan, $hrSpan] = $parseSpan($cell);
+
+            // Header display text: strip the [text|header|c2] / {name} wrappers.
+            $text = trim($cell);
+            if (preg_match('/^\{(.+)\}$/', $text, $hm)) {
+                $text = trim($hm[1]);
+            } elseif (preg_match('/^\[(.+)\]$/', $text, $hm)) {
+                $parts = array_map('trim', explode('|', $hm[1]));
+                $text  = $parts[0];
+            }
+
+            $headerGrid[$hr][] = ['text' => $text, 'col' => $col, 'colSpan' => $hcSpan, 'rowSpan' => $hrSpan];
+            $headerCols        = max($headerCols, $col + $hcSpan - 1);
+
+            for ($ri = $hr; $ri < $hr + $hrSpan; $ri++) {
+                for ($ci = $col; $ci < $col + $hcSpan; $ci++) {
+                    if ($ri !== $hr || $ci !== $col) {
+                        $hCovered[$ri . ':' . $ci] = true;
+                    }
+                }
+            }
+
+            $col += $hcSpan - 1;
+        }
+    }
+
+    $dataCols  = max($headerCols, $bodyCols, 1);
+    $totalCols = $dataCols + ($editable ? 1 : 0);
+
+    $emitRowCells = static function (array $rowCells, array $recValues, ?int $rowIndex) use ($renderCell): string {
+        $out = '';
+        foreach ($rowCells as $c) {
+            $attrs = ($c['colSpan'] > 1 ? ' colspan="' . $c['colSpan'] . '"' : '')
+                . ($c['rowSpan'] > 1 ? ' rowspan="' . $c['rowSpan'] . '"' : '');
+            $out .= '<td' . $attrs . '>' . $renderCell($c['raw'], $recValues, $rowIndex) . '</td>';
+        }
+
+        return $out;
+    };
+
+    // ---- Editable: partition body rows into blocks bound together by rowspans ----
+    // A block is a maximal run of consecutive rows where no rowspan reaches past
+    // its end. Each block becomes one independently repeatable unit (its own
+    // "+ Add Row" button); cloning a block duplicates ALL of its rows so a
+    // spanning cell (e.g. a rowspan=3 cell over rows 1-3) is reproduced intact.
+    // $segments is the ordered render plan: separator rows and repeatable blocks
+    // interleaved in the order they appear, so a "Method precision" divider stays
+    // between its groups instead of being swallowed into one.
+    $blocks      = [];
+    $blockFields = [];
+    $segments    = [];
+    if ($editable) {
+        $r = 0;
+        while ($r < $numBodyRows) {
+            // A separator row renders standalone and resets block partitioning.
+            if ($rowIsSeparator[$r]) {
+                $segments[] = ['type' => 'sep', 'row' => $r];
+                $r++;
+                continue;
+            }
+
+            $end = $r;
+            for ($i = $r; $i <= $end && $i < $numBodyRows; $i++) {
+                foreach ($grid[$i] as $c) {
+                    $reach = $i + $c['rowSpan'] - 1;
+                    if ($reach > $end) {
+                        $end = $reach;
+                    }
+                }
+            }
+            if ($end >= $numBodyRows) {
+                $end = $numBodyRows - 1;
+            }
+            // A block never crosses a separator row — stop just before one.
+            for ($k = $r + 1; $k <= $end; $k++) {
+                if ($rowIsSeparator[$k]) {
+                    $end = $k - 1;
+                    break;
+                }
+            }
+
+            $bi          = count($blocks);
+            $blocks[$bi] = ['start' => $r, 'end' => $end];
+            $segments[]  = ['type' => 'block', 'index' => $bi];
+
+            $names = [];
+            for ($rr = $r; $rr <= $end; $rr++) {
+                foreach ($grid[$rr] as $c) {
+                    $fn = $cellFieldName($c['raw']);
+                    if ($fn !== null) {
+                        $names[$fn] = true;
+                    }
+                }
+            }
+            $blockFields[$bi] = array_keys($names);
+
+            $r = $end + 1;
+        }
+
+        // Route each saved record to the block it belongs to so an edit-load
+        // repeats each block once per saved instance. The submit transpose fills
+        // EVERY field key (empty string outside the block), so match on a NON-EMPTY
+        // value — each saved instance only fills its own block's fields.
+        $blockInstances = array_fill(0, count($blocks), []);
+        foreach ($savedRows as $rec) {
+            if (!is_array($rec)) {
+                continue;
+            }
+            foreach ($blocks as $bi => $b) {
+                foreach ($blockFields[$bi] as $fn) {
+                    if (isset($rec[$fn]) && trim((string) $rec[$fn]) !== '') {
+                        $blockInstances[$bi][] = $rec;
+                        continue 3;
+                    }
+                }
+            }
+        }
+
+        // Total instances rendered = the starting point for the "Add Row" JS so
+        // cloned block instances get fresh, section-unique row indexes.
+        $totalInstances = 0;
+        foreach ($blocks as $bi => $b) {
+            $totalInstances += max(1, count($blockInstances[$bi]));
+        }
+    } else {
+        $totalInstances = $rowInstances;
+    }
+
+    $html  = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $totalInstances . '">';
+    $html .= '<table>';
+    $html .= '<thead>';
+    foreach ($headerGrid as $hr => $cells) {
+        $html .= '<tr>';
+        foreach ($cells as $h) {
+            $attrs = ($h['colSpan'] > 1 ? ' colspan="' . $h['colSpan'] . '"' : '')
+                . ($h['rowSpan'] > 1 ? ' rowspan="' . $h['rowSpan'] . '"' : '');
+            $html .= '<th' . $attrs . '>' . esc($h['text']) . '</th>';
+        }
+        // The Action column header spans every header row, once, on the first row.
+        if ($editable && $hr === 0) {
+            $rs = count($headerLines) > 1 ? ' rowspan="' . count($headerLines) . '"' : '';
+            $html .= '<th class="rt-action-col"' . $rs . '>Action</th>';
+        }
+        $html .= '</tr>';
+    }
+    $html .= '</thead>';
 
     if ($editable) {
-        $html .= '<th class="rt-action-col">Action</th>';
-    }
-    $html .= '</tr></thead>';
-
-    $html .= '<tbody>';
-
-    for ($instance = 0; $instance < $rowInstances; $instance++) {
-        $rowValues = $repeatRows ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
-        if (!is_array($rowValues)) {
-            $rowValues = [];
-        }
-
-        // Repeatable rows are indexed (0,1,2,...); single records use null.
-        $rowIndex = $repeatRows ? $instance : null;
-
-        foreach ($bodyLines as $line) {
-            $cells = $parseCsvLine($line);
-            $html .= '<tr class="rt-row">';
-
-            foreach ($cells as $cell) {
-                $html .= '<td>' . $renderCell($cell, $rowValues, $rowIndex) . '</td>';
+        $rowIndex = 0; // section-unique index; one per block instance, shared by its rows
+        foreach ($segments as $seg) {
+            // --- Separator: a full-width static sub-header (no block, no Add Row) ---
+            if ($seg['type'] === 'sep') {
+                $text = '';
+                foreach ($grid[$seg['row']] as $c) {
+                    $piece = $renderCell($c['raw'], [], null);
+                    if (trim($piece) !== '') {
+                        $text .= ($text === '' ? '' : ' ') . $piece;
+                    }
+                }
+                $html .= '<tbody class="rt-sep"><tr>'
+                    . '<td class="rt-sep-cell" colspan="' . $totalCols . '">' . $text . '</td>'
+                    . '</tr></tbody>';
+                continue;
             }
 
-            if ($editable) {
-                $html .= '<td class="rt-action-col"><button type="button" class="rt-del" title="Remove row">&times;</button></td>';
+            $bi          = $seg['index'];
+            $b           = $blocks[$bi];
+            $blockHeight = $b['end'] - $b['start'] + 1;
+            $instances   = max(1, count($blockInstances[$bi]));
+
+            $html .= '<tbody class="rt-block" data-block-rows="' . $blockHeight . '">';
+            for ($inst = 0; $inst < $instances; $inst++) {
+                $rec = $blockInstances[$bi][$inst] ?? [];
+                if (!is_array($rec)) {
+                    $rec = [];
+                }
+
+                for ($rr = $b['start']; $rr <= $b['end']; $rr++) {
+                    $html .= '<tr class="rt-row">';
+                    $html .= $emitRowCells($grid[$rr], $rec, $rowIndex);
+
+                    // One delete per block instance: an action cell on the first
+                    // row, spanning the whole block.
+                    if ($rr === $b['start']) {
+                        $html .= '<td class="rt-action-col" rowspan="' . $blockHeight . '">'
+                            . '<button type="button" class="rt-del" title="Remove">&times;</button></td>';
+                    }
+                    $html .= '</tr>';
+                }
+                $rowIndex++;
             }
-            $html .= '</tr>';
+
+            // One "Add Row" per block — clones this block's last instance intact.
+            $html .= '<tr class="rt-add-row"><td colspan="' . $totalCols . '">'
+                . '<button type="button" class="rt-add">+ Add Row</button></td></tr>';
+            $html .= '</tbody>';
         }
+    } else {
+        $html .= '<tbody>';
+        for ($instance = 0; $instance < $rowInstances; $instance++) {
+            $rowValues = $repeatRows ? ($savedRows[$instance] ?? []) : ($savedRows[0] ?? []);
+            if (!is_array($rowValues)) {
+                $rowValues = [];
+            }
+            $rowIndex = $repeatRows ? $instance : null;
+
+            foreach ($grid as $rowCells) {
+                $html .= '<tr class="rt-row">' . $emitRowCells($rowCells, $rowValues, $rowIndex) . '</tr>';
+            }
+        }
+        $html .= '</tbody>';
     }
 
-    $html .= '</tbody>';
     $html .= '</table>';
-
-    // Only editable tables let the end user add rows.
-    if ($editable) {
-        $html .= '<div class="rt-add-wrap"><button type="button" class="rt-add">+ Add Row</button></div>';
-    }
-
     $html .= '</div>';
 
     return $html;
@@ -401,7 +712,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     <div class="field-grid">
                         <?php foreach ($section['fields'] as $field): ?>
                             <?php
-                            $validation = json_decode($field['validation'], true) ?? [];
+                            $validation = json_decode($field['validation'] ?? 'null', true) ?? [];
                             $value = old('sections.' . $section['id'] . '.' . $field['name'])
                                 ?? ($values[$section['id']][$field['name']] ?? '');
                             ?>
@@ -469,35 +780,79 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         }
 
-        document.querySelectorAll('.repeatable-table').forEach(function(wrap) {
-            var tbody = wrap.querySelector('tbody');
-            var addBtn = wrap.querySelector('.rt-add');
-            if (!tbody) return;
+        // The body is partitioned into blocks (one <tbody class="rt-block"> each).
+        // A block is the repeatable unit: data-block-rows is how many template rows
+        // it spans, so a rowspan group (e.g. 3 rows) clones/deletes as one unit.
+        function instanceRows(blockTbody) {
+            // The last instance = the last data-block-rows .rt-row elements.
+            var rows = Array.prototype.slice.call(blockTbody.querySelectorAll('.rt-row'));
+            var n = parseInt(blockTbody.getAttribute('data-block-rows') || '1', 10);
 
-            if (addBtn) {
-                addBtn.addEventListener('click', function() {
-                    var rows = tbody.querySelectorAll('.rt-row');
-                    if (!rows.length) return;
+            return {
+                rows: rows,
+                height: n
+            };
+        }
 
-                    // Use a monotonic counter so indexes stay unique even after deletes.
-                    var nextIndex = parseInt(wrap.getAttribute('data-next-index') || rows.length, 10);
-                    var clone = rows[rows.length - 1].cloneNode(true);
-                    clearRow(clone);
-                    reindexRow(clone, nextIndex);
-                    tbody.appendChild(clone);
-                    wrap.setAttribute('data-next-index', nextIndex + 1);
-                });
+        // Collect a block instance starting at firstRow, spanning `height` rt-rows.
+        function rowsFrom(firstRow, height) {
+            var out = [firstRow];
+            var sib = firstRow;
+            for (var i = 1; i < height; i++) {
+                sib = sib.nextElementSibling;
+                if (sib && sib.classList.contains('rt-row')) {
+                    out.push(sib);
+                }
             }
 
-            tbody.addEventListener('click', function(e) {
-                var btn = e.target.closest('.rt-del');
-                if (!btn) return;
-                var rows = tbody.querySelectorAll('.rt-row');
-                if (rows.length <= 1) {
-                    clearRow(rows[0]); // keep at least one row
+            return out;
+        }
+
+        document.querySelectorAll('.repeatable-table').forEach(function(wrap) {
+            wrap.addEventListener('click', function(e) {
+                // --- Add Row (per block): clone the block's last instance intact ---
+                var addBtn = e.target.closest('.rt-add');
+                if (addBtn) {
+                    var block = addBtn.closest('.rt-block');
+                    if (!block) return;
+                    var info = instanceRows(block);
+                    if (!info.rows.length) return;
+
+                    var addRow = block.querySelector('.rt-add-row');
+                    var nextIndex = parseInt(wrap.getAttribute('data-next-index') || '0', 10);
+                    var lastInstance = info.rows.slice(info.rows.length - info.height);
+
+                    lastInstance.forEach(function(row) {
+                        var clone = row.cloneNode(true);
+                        clearRow(clone);
+                        reindexRow(clone, nextIndex); // all rows of an instance share one index
+                        block.insertBefore(clone, addRow);
+                    });
+                    wrap.setAttribute('data-next-index', nextIndex + 1);
+
                     return;
                 }
-                btn.closest('.rt-row').remove();
+
+                // --- Delete (per block instance): remove all rows of that instance ---
+                var delBtn = e.target.closest('.rt-del');
+                if (delBtn) {
+                    var blk = delBtn.closest('.rt-block');
+                    if (!blk) return;
+                    var height = parseInt(blk.getAttribute('data-block-rows') || '1', 10);
+                    var firstRow = delBtn.closest('.rt-row');
+                    var allRows = blk.querySelectorAll('.rt-row');
+                    var instance = rowsFrom(firstRow, height);
+
+                    // Keep at least one instance per block — clear it instead of removing.
+                    if (allRows.length <= height) {
+                        instance.forEach(clearRow);
+
+                        return;
+                    }
+                    instance.forEach(function(r) {
+                        r.remove();
+                    });
+                }
             });
         });
     })();
@@ -505,6 +860,30 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 <style>
     .rt-add-wrap {
         margin-top: 10px;
+    }
+
+    /* Per-block "Add Row" footer cell (one per rt-block tbody). */
+    .rt-add-row td {
+        padding: 8px;
+        text-align: left;
+        background: #f6f8fa;
+        border-top: 1px solid #e2e6ea;
+    }
+
+    /* Keep block tbodies visually distinct from one another. */
+    tbody.rt-block+tbody.rt-block {
+        border-top: 2px solid #d0d7de;
+    }
+
+    /* Full-width sub-header divider inside a table body (e.g. "Method precision").
+       Not a data row: no inputs, no Add Row, no delete. */
+    .rt-sep-cell {
+        background: #eef2f6;
+        font-weight: 700;
+        text-align: left;
+        padding: 10px 12px;
+        border-top: 2px solid #d0d7de;
+        color: #1f2d3d;
     }
 
     .rt-add {
