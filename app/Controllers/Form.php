@@ -70,34 +70,35 @@ class Form extends Controller
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
         foreach ($sections as $section) {
-            // Table-less sections store submissions in form_values (keyed by section_id);
-            // sections bound to a real table read their own latest row.
-            $table = !empty($section['table']) ? $section['table'] : 'form_values';
+            // The submit path ALWAYS records into form_values (keyed by section_id) —
+            // the forms table carries no `table` column, so every save lands there.
+            // Read form_values first so saved data reflects back, regardless of
+            // whether the section carries a dynamic `table` name (classic builder
+            // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
+            $row = $db->table('form_values')
+                ->where('section_id', $section['id'])
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getRowArray();
 
-            if ($table === 'form_values') {
-                $row = $db->table('form_values')
-                    ->where('section_id', $section['id'])
+            if ($row) {
+                // values is a JSON array of row objects for repeatable tables,
+                // or a single object for grid/inline sections.
+                $dataValues[$section['id']] = json_decode($row['values'], true);
+                continue;
+            }
+
+            // Fallback: a section bound to a real table with no form_values record
+            // (legacy data written straight to its own table) reads its latest row.
+            $table = !empty($section['table']) ? $section['table'] : null;
+            if ($table && in_array($table, $db->listTables(), true)) {
+                $tableRow = $db->table($table)
                     ->orderBy('id', 'DESC')
                     ->get()
                     ->getRowArray();
 
-                if ($row) {
-                    // values is a JSON array of row objects for repeatable tables,
-                    // or a single object for grid/inline sections.
-                    $dataValues[$section['id']] = json_decode($row['values'], true);
-                }
-            } else {
-                if (!in_array($table, $db->listTables(), true)) {
-                    continue;
-                }
-
-                $row = $db->table($table)
-                    ->orderBy('id', 'DESC')
-                    ->get()
-                    ->getRowArray();
-
-                if ($row) {
-                    $dataValues[$section['id']] = $row;
+                if ($tableRow) {
+                    $dataValues[$section['id']] = $tableRow;
                 }
             }
         }
