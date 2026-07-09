@@ -46,6 +46,10 @@ class Form extends Controller
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
         }
 
+        // View-only mode (?mode=view): render the form structure with empty,
+        // non-editable fields — the user can see the form but cannot type or
+        // load any saved data.
+        $viewOnly = (service('request')->getGet('mode') === 'view');
 
         // 2. Check composite
         $db = \Config\Database::connect();
@@ -69,7 +73,8 @@ class Form extends Controller
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
-        foreach ($sections as $section) {
+        // In view-only mode, skip data loading entirely so every field renders empty.
+        foreach (($viewOnly ? [] : $sections) as $section) {
             // The submit path ALWAYS records into form_values (keyed by section_id) —
             // the forms table carries no `table` column, so every save lands there.
             // Read form_values first so saved data reflects back, regardless of
@@ -107,6 +112,7 @@ class Form extends Controller
             'form' => $form,
             'sections' => $sections,
             'values' => $dataValues,
+            'readonly' => $viewOnly,
             'breadcrumb' => $form['name'] ?? 'Form',
         ]);
     }

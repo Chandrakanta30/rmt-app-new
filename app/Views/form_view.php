@@ -686,6 +686,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
                 <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]" value="<?= esc($section['action_flag'] ?? '') ?>">
 
+                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly ?? false) ? 'disabled' : '' ?>>
                 <div class="section-panel-header">
                     <div>
                         <span class="section-kicker">Section <?= $index + 1 ?></span>
@@ -729,9 +730,12 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     </div>
                 <?php endif; ?>
 
-                <div class="section-actions">
-                    <button class="btn btn-primary" type="submit">Save section</button>
-                </div>
+                <?php if (!($readonly ?? false)): ?>
+                    <div class="section-actions">
+                        <button class="btn btn-primary" type="submit">Save section</button>
+                    </div>
+                <?php endif; ?>
+                </fieldset>
             </form>
         <?php endforeach; ?>
     </div>
