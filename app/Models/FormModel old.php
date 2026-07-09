@@ -9,6 +9,4 @@ class FormModel extends Model
     protected $table = 'forms';
     protected $primaryKey = 'id';
     protected $returnType = 'array';
-        protected $allowedFields = ['name', 'form_key', 'table', 'reviewed', 'approved', 'status'];
-
 }

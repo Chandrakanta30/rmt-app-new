@@ -307,29 +307,4 @@ class Form extends Controller
         // return redirect('http://localhost:8888/code4/public/index.php/form')->with('success', 'Saved successfully');
         // return redirect()->back()->with('success', 'Saved successfully');
     }
-  public function updateStatus($formId)
-{
-    $request = service('request');
-    $db = \Config\Database::connect();
-    
-    $reviewed = $request->getPost('reviewed') ? 1 : 0;
-    $approved = $request->getPost('approved') ? 1 : 0;
-    
-    // Determine status based on checkboxes
-    if ($approved == 1) {
-        $status = 'Approved';
-    } elseif ($reviewed == 1) {
-        $status = 'Reviewed';
-    } else {
-        $status = 'Created';
-    }
-    
-    $db->table('forms')
-        ->where('id', $formId)
-        ->update([
-            'status' => $status
-        ]);
-    
-    return redirect()->back()->with('success', 'Status updated successfully');
-}
 }
