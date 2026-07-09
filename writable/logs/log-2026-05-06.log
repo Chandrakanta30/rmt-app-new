@@ -1,0 +1,476 @@
+CRITICAL - 2026-05-06 09:21:30 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 63.
+ 1 APPPATH/Controllers/Form.php(63): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 63)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:21:36 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 63.
+ 1 APPPATH/Controllers/Form.php(63): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 63)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:22:26 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 63.
+ 1 APPPATH/Controllers/Form.php(63): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 63)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:22:27 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 63.
+ 1 APPPATH/Controllers/Form.php(63): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 63)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:22:53 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:22:55 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:22:55 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:22:56 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:22:56 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:01 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:11 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:11 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:51 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:53 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:54 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:55 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:55 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:23:55 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:24:01 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:24:01 --> ErrorException: Undefined variable $values
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $values', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:26:19 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form/acuracy%203e]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index('acuracy 3e')
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:26:38 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:27:07 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form/acuracy_3e]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index('acuracy_3e')
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:27:22 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:27:58 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:28:00 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:28:01 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:28:01 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:28:01 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:28:01 --> ErrorException: Undefined variable $dataValues
+[Method: GET, Route: form]
+in APPPATH/Controllers/Form.php on line 64.
+ 1 APPPATH/Controllers/Form.php(64): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $dataValues', '/Applications/MAMP/htdocs/code4/app/Controllers/Form.php', 64)
+ 2 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 3 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 4 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:40:40 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:43:37 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(63): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:43:38 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(63): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:43:39 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(63): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:43:39 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(63): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:43:39 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(63): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:43:39 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(61): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(63): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-05-06 09:43:48 --> ErrorException: Undefined array key 11
+[Method: GET, Route: form]
+in APPPATH/Views/form_view.php on line 27.
+ 1 APPPATH/Views/form_view.php(27): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key 11', '/Applications/MAMP/htdocs/code4/app/Views/form_view.php', 27)
+ 2 SYSTEMPATH/View/View.php(240): include('/Applications/MAMP/htdocs/code4/app/Views/form_view.php')
+ 3 SYSTEMPATH/View/View.php(243): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH/Common.php(1250): CodeIgniter\View\View->render('form_view', [], true)
+ 5 APPPATH/Controllers/Form.php(62): view('form_view', [...])
+ 6 SYSTEMPATH/CodeIgniter.php(951): App\Controllers\Form->index()
+ 7 SYSTEMPATH/CodeIgniter.php(497): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Form))
+ 8 SYSTEMPATH/CodeIgniter.php(340): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 9 SYSTEMPATH/Boot.php(417): CodeIgniter\CodeIgniter->run()
+10 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+11 FCPATH/index.php(63): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
