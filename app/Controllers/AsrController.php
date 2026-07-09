@@ -10,15 +10,6 @@ class AsrController extends BaseController
     public function index()
     {
         $asrModel = new AsrModel();
-
-        return view('asr/index', [
-            'asrList'    => $asrModel->getWithFormDetails(),
-            'breadcrumb' => 'ASR No.',
-        ]);
-    }
-
-    public function create()
-    {
         $formModel = new FormModel();
 
         $approvedForms = $formModel
@@ -26,27 +17,26 @@ class AsrController extends BaseController
             ->orderBy('name', 'ASC')
             ->findAll();
 
-        return view('asr/create', [
+        return view('asr/index', [
+            'asrList'       => $asrModel->getWithFormDetails(),
             'approvedForms' => $approvedForms,
-            'breadcrumb'    => 'Create ASR No.',
+            'breadcrumb'    => 'ASR No.',
         ]);
     }
 
     public function store()
     {
         $rules = [
-            'group_name' => 'required|max_length[255]',
-            'asr_no'     => 'required|max_length[50]',
-            'form_id'    => 'required|is_natural_no_zero',
+            'asr_no'  => 'required|max_length[50]',
+            'form_id' => 'required|is_natural_no_zero',
         ];
 
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $groupName = trim((string) $this->request->getPost('group_name'));
-        $asrNo     = trim((string) $this->request->getPost('asr_no'));
-        $formId    = (int) $this->request->getPost('form_id');
+        $asrNo  = trim((string) $this->request->getPost('asr_no'));
+        $formId = (int) $this->request->getPost('form_id');
 
         $formModel = new FormModel();
         $form = $formModel->where('status', 'Approved')->find($formId);
@@ -55,10 +45,13 @@ class AsrController extends BaseController
             return redirect()->back()->withInput()->with('error', 'Selected form is not an approved form.');
         }
 
-        $db = \Config\Database::connect();
-        $db->table('forms')->where('id', $formId)->update(['Group_name' => $groupName]);
-
         $asrModel = new AsrModel();
+        $duplicate = $asrModel->where('asr_no', $asrNo)->first();
+
+        if ($duplicate) {
+            return redirect()->back()->withInput()->with('error', 'This ASR number has already been used. Please enter a new, unique ASR number.');
+        }
+
         $asrModel->insert([
             'asr_no'  => $asrNo,
             'form_id' => $formId,

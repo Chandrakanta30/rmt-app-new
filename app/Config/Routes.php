@@ -34,7 +34,6 @@ $routes->post('form/submit', 'Form::submit', ['filter' => 'permission:submit_dat
 // ASR No. routes
 $routes->group('asrno', ['filter' => 'permission:create_asrno'], function($routes) {
     $routes->get('/', [AsrController::class, 'index']);
-    $routes->get('create', [AsrController::class, 'create']);
     $routes->post('store', [AsrController::class, 'store']);
 });
 

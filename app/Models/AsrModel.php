@@ -19,7 +19,7 @@ class AsrModel extends Model
 
     public function getWithFormDetails()
     {
-        return $this->select('form_asr_mapping.*, forms.name as form_name, forms.Group_name as group_name, forms.status as form_status')
+        return $this->select('form_asr_mapping.*, forms.name as form_name')
             ->join('forms', 'forms.id = form_asr_mapping.form_id', 'left')
             ->orderBy('form_asr_mapping.id', 'DESC')
             ->findAll();
