@@ -6,6 +6,7 @@ use App\Controllers\AuthController;
 use App\Controllers\UserController;
 use App\Controllers\RoleController;
 use App\Controllers\PermissionController;
+use App\Controllers\AsrController;
 
 /**
  * @var RouteCollection $routes
@@ -29,6 +30,13 @@ $routes->group('', ['filter' => 'permission:view_forms'], function($routes) {
 });
 
 $routes->post('form/submit', 'Form::submit', ['filter' => 'permission:submit_data']);
+
+// ASR No. routes
+$routes->group('asrno', ['filter' => 'permission:create_asrno'], function($routes) {
+    $routes->get('/', [AsrController::class, 'index']);
+    $routes->get('create', [AsrController::class, 'create']);
+    $routes->post('store', [AsrController::class, 'store']);
+});
 
 // Admin management routes (protected by specific permission checks)
 $routes->group('users', ['filter' => 'permission:manage_users'], function($routes) {
