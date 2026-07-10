@@ -673,42 +673,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         <div class="alert alert-error"><?= esc(session()->getFlashdata('error')) ?></div>
     <?php endif; ?>
 
-    <?php
-    helper('auth');
-
-    // Get current status from form data
-    $currentStatus = $form['status'] ?? 'Created';
-    $isReviewed = in_array($currentStatus, ['Reviewed', 'Approved'], true);
-    $isApproved = $currentStatus === 'Approved';
-    $viewMode = isset($_GET['mode']) && $_GET['mode'] === 'view';
-
-    // Only the Reviewer role may toggle Reviewed, and only the Approver role may toggle Approved.
-    // Admin can do both.
-    $canToggleReviewed = has_role('Reviewer') || has_role('Admin');
-    $canToggleApproved = has_role('Approver') || has_role('Admin');
-    $approveAllowedByStatus = in_array($currentStatus, ['Reviewed', 'Approved'], true);
-    $reviewedDisabled = $canToggleReviewed ? '' : 'disabled';
-    $approvedDisabled = ($canToggleApproved && $approveAllowedByStatus) ? '' : 'disabled';
-    $reviewedTitle = $canToggleReviewed ? '' : 'title="Only reviewers or admins can change this."';
-    if (! $canToggleApproved) {
-        $approvedTitle = 'title="Only approvers or admins can change this."';
-    } elseif (! $approveAllowedByStatus) {
-        $approvedTitle = 'title="Form must be reviewed before approval."';
-    } else {
-        $approvedTitle = '';
-    }
-    $reviewedWarning = $canToggleReviewed ? '' : 'Reviewer only can change this status.';
-    if (! $canToggleApproved) {
-        $approvedWarning = 'Approver only can change this status.';
-    } elseif (! $approveAllowedByStatus) {
-        $approvedWarning = 'Form must be reviewed before approval.';
-    } else {
-        $approvedWarning = '';
-    }
-    ?>
-
-
-    <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
+    <div class="form-sections">
         <?php foreach ($sections as $index => $section): ?>
             <?php $layout = strtolower($section['layout'] ?? ''); ?>
             <form class="section-panel" method="post" action="<?= site_url('form/submit') ?>">
@@ -716,11 +681,11 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
 
-                <!-- <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>"> -->
-<input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="form_values">
+
+                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
+
                 <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]" value="<?= esc($section['action_flag'] ?? '') ?>">
 
-                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly ?? false) ? 'disabled' : '' ?>>
                 <div class="section-panel-header">
                     <div>
                         <span class="section-kicker">Section <?= $index + 1 ?></span>
@@ -729,27 +694,22 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     <span class="section-count"><?= count($section['fields']) ?> fields</span>
                 </div>
 
-                <?php if ($viewMode): ?>
-                    <div class="view-mode-overlay">
-                        <span class="view-mode-badge">View Only</span>
-                    </div>
-                <?php endif; ?>
-
                 <?php if ($layout === 'inline'): ?>
-                    <div class="inline-template <?= $viewMode ? 'read-only' : '' ?>">
+                    <div class="inline-template">
                         <?php
                         echo nl2br($renderSectionTemplate($section['inline_template'] ?? '', $section, $values));
                         ?>
                     </div>
                 <?php elseif (in_array($layout, ['tabular', 'table'], true)): ?>
-                    <div class="table-template <?= $viewMode ? 'read-only' : '' ?>">
+                    <div class="table-template">
                         <?php
                         $template = $section['table_template'] ?? $section['inline_template'] ?? '';
                         echo $renderTableTemplate($template, $section, $values);
+                        //   echo $renderSectionTemplate($template, $section, $values);
                         ?>
                     </div>
                 <?php else: ?>
-                    <div class="field-grid <?= $viewMode ? 'read-only' : '' ?>">
+                    <div class="field-grid">
                         <?php foreach ($section['fields'] as $field): ?>
                             <?php
                             $validation = json_decode($field['validation'] ?? 'null', true) ?? [];
@@ -763,72 +723,17 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                                     name="sections[<?= esc($section['id']) ?>][<?= esc($field['name']) ?>]"
                                     value="<?= esc($value) ?>"
                                     <?= !empty($validation['required']) ? 'required' : '' ?>
-                                    <?= $specialCharAttrs($field) ?>
-                                    <?= $viewMode ? 'readonly disabled' : '' ?>>
+                                    <?= $specialCharAttrs($field) ?>>
                             </label>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
 
-                <?php if (!$viewMode): ?>
-                <?php if (!($readonly ?? false)): ?>
-                    <div class="section-actions">
-                        <button class="btn btn-primary" type="submit">Save section</button>
-                    </div>
-                <?php endif; ?>
-                </fieldset>
+                <div class="section-actions">
+                    <button class="btn btn-primary" type="submit">Save section</button>
+                </div>
             </form>
         <?php endforeach; ?>
-    </div>
-
-    <!-- Bottom Action Bar with View button and Status Checkboxes -->
-    <div class="bottom-action-bar">
-        <div class="bottom-action-left">
-            <?php if (!$viewMode): ?>
-                <a href="<?= site_url('form/' . $form['form_key'] . '?mode=view') ?>" class="btn btn-secondary">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 8s2-4 7-4 7 4 7 4-2 4-7 4-7-4-7-4z"/>
-                        <circle cx="8" cy="8" r="2"/>
-                    </svg>
-                    View
-                </a>
-            <?php else: ?>
-                <a href="<?= site_url('form/' . $form['form_key']) ?>" class="btn btn-secondary">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 8l-4-4v8z"/>
-                        <path d="M4 4h8v8H4z"/>
-                    </svg>
-                    Edit
-                </a>
-            <?php endif; ?>
-        </div>
-
-        <div class="bottom-action-right">
-            <div class="status-section">
-                <span class="status-label">Status:</span>
-                <span class="status-badge <?= strtolower($currentStatus) ?>"><?= esc($currentStatus) ?></span>
-                
-                <form method="post" action="<?= site_url('form/update_status/' . $form['id']) ?>" class="status-form">
-                    <?= csrf_field() ?>
-                    <label class="status-checkbox <?= $isReviewed ? 'checked' : '' ?> <?= $canToggleReviewed ? '' : 'disabled' ?>" data-warning="<?= esc($reviewedWarning) ?>">
-                        <input type="checkbox" name="reviewed" value="1" <?= $isReviewed ? 'checked' : '' ?> <?= $reviewedDisabled ?> <?= $reviewedTitle ?> <?= $canToggleReviewed ? 'onchange="this.form.submit()"' : '' ?>>
-                        <span class="checkmark"></span>
-                        Reviewed
-                        <?php if (! $canToggleReviewed): ?>
-                            <span class="status-note">Only Reviewer or Admin can change this.</span>
-                        <?php endif; ?>
-                    </label>
-                    <label class="status-checkbox <?= $isApproved ? 'checked' : '' ?> <?= $canToggleApproved ? '' : 'disabled' ?>" data-warning="<?= esc($approvedWarning) ?>">
-                        <input type="checkbox" name="approved" value="1" <?= $isApproved ? 'checked' : '' ?> <?= $approvedDisabled ?> <?= $approvedTitle ?> <?= $canToggleApproved ? 'onchange="this.form.submit()"' : '' ?>>
-                        <span class="checkmark"></span>
-                        Approved
-                        <?php if (! $canToggleApproved): ?>
-                            <span class="status-note">Only Approver or Admin can change this.</span>
-                        <?php endif; ?>
-                    </label>
-                </form>
-            </div>
-        </div>
     </div>
 </div>
 <?= $this->endSection() ?>
@@ -951,24 +856,6 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         });
     })();
-
-    // Alert on unauthorized status checkbox clicks.
-    (function() {
-        document.querySelectorAll('.status-checkbox[data-warning]').forEach(function(label) {
-            label.addEventListener('click', function(event) {
-                var warning = label.dataset.warning;
-                var input = label.querySelector('input[type="checkbox"]');
-
-                if (!input || !input.disabled || warning === '') {
-                    return;
-                }
-
-                event.preventDefault();
-                event.stopPropagation();
-                alert(warning);
-            });
-        });
-    })();
 </script>
 <style>
     .rt-add-wrap {
@@ -1049,231 +936,6 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         margin: 0;
         cursor: pointer;
         accent-color: #1f7a44;
-    }
-
-    /* Bottom Action Bar Styles */
-    .bottom-action-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 16px 24px;
-        background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 -1px 3px rgba(0,0,0,0.06);
-        margin-top: 32px;
-        border: 1px solid #e9ecf0;
-        position: sticky;
-        bottom: 0;
-        z-index: 100;
-        background: rgba(255,255,255,0.95);
-        backdrop-filter: blur(8px);
-    }
-
-    .bottom-action-left {
-        display: flex;
-        gap: 8px;
-    }
-
-    .bottom-action-right {
-        display: flex;
-        align-items: center;
-    }
-
-    .status-section {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .status-label {
-        font-size: 14px;
-        font-weight: 600;
-        color: #4a5568;
-        margin-right: 4px;
-    }
-
-    .status-checkboxes {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .status-checkbox {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        color: #4a5568;
-        position: relative;
-        user-select: none;
-    }
-
-    .status-checkbox.disabled {
-        cursor: not-allowed;
-        opacity: 0.7;
-    }
-
-    .status-note {
-        display: block;
-        margin-top: 4px;
-        font-size: 12px;
-        color: #b92b27;
-        line-height: 1.2;
-    }
-
-    .status-checkbox input[type="checkbox"] {
-        display: none;
-    }
-
-    .status-checkbox .checkmark {
-        width: 18px;
-        height: 18px;
-        border: 2px solid #cbd5e0;
-        border-radius: 4px;
-        display: inline-block;
-        position: relative;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-        background: #fff;
-    }
-
-    .status-checkbox.checked .checkmark {
-        background: #1f7a44;
-        border-color: #1f7a44;
-    }
-
-    .status-checkbox.checked .checkmark::after {
-        content: "✓";
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-size: 12px;
-        font-weight: bold;
-    }
-
-    .status-checkbox:hover .checkmark {
-        border-color: #1f7a44;
-    }
-
-    .status-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .status-badge.created {
-        background: #edf2f7;
-        color: #4a5568;
-    }
-
-    .status-badge.reviewed {
-        background: #ebf8ff;
-        color: #2b6cb0;
-    }
-
-    .status-badge.approved {
-        background: #f0fff4;
-        color: #276749;
-    }
-
-    .status-form {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin: 0;
-    }
-
-    /* View mode styles */
-    .view-mode .section-panel {
-        opacity: 0.9;
-        position: relative;
-    }
-
-    .view-mode-overlay {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        z-index: 10;
-    }
-
-    .view-mode-badge {
-        background: #4a5568;
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .read-only input:not([type="checkbox"]),
-    .read-only textarea,
-    .read-only select {
-        background: #f7fafc !important;
-        cursor: not-allowed !important;
-        opacity: 0.8;
-    }
-
-    .read-only input:not([type="checkbox"]):focus,
-    .read-only textarea:focus,
-    .read-only select:focus {
-        border-color: #e2e8f0 !important;
-        box-shadow: none !important;
-    }
-
-    .btn-secondary {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-weight: 500;
-        font-size: 14px;
-        text-decoration: none;
-        background: #edf2f7;
-        color: #2d3748;
-        border: 1px solid #e2e8f0;
-        transition: all 0.2s ease;
-    }
-
-    .btn-secondary:hover {
-        background: #e2e8f0;
-        border-color: #cbd5e0;
-    }
-
-    .btn-secondary svg {
-        flex-shrink: 0;
-    }
-
-    @media (max-width: 640px) {
-        .bottom-action-bar {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-        }
-
-        .bottom-action-left,
-        .bottom-action-right {
-            justify-content: center;
-        }
-
-        .status-section {
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .status-form {
-            flex-wrap: wrap;
-            justify-content: center;
-        }
     }
 </style>
 <?= $this->endSection() ?>

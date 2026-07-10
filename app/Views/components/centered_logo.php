@@ -8,3 +8,4 @@
         <div class="lab-tagline">Precision • Accuracy • Reliability</div>
     </div>
 </div>
+<!-- Centered Logo Banner Component -->
