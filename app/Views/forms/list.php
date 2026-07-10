@@ -189,7 +189,7 @@
                                 <span class="status-badge status-<?= esc($status) ?>"><?= esc($status) ?></span>
                             </td>
                             <td>
-                                <a class="btn btn-primary" href="<?= base_url('form/' . $form['form_key']) ?>">Edit</a>
+                                <a class="btn btn-primary" href="<?= base_url('form/' . $form['form_key'] . '?mode=view') ?>">View</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
