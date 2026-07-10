@@ -770,8 +770,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     </div>
                 <?php endif; ?>
 
-                <?php if (!$viewMode): ?>
-                <?php if (!($readonly ?? false)): ?>
+                <?php if (!$viewMode && !($readonly ?? false)): ?>
                     <div class="section-actions">
                         <button class="btn btn-primary" type="submit">Save section</button>
                     </div>
