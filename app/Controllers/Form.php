@@ -139,6 +139,10 @@ public function index($formKey = 'accuracyform')
     }
 
     $dataValues = [];
+        // View-only mode (?mode=view): render the form structure with empty,
+        // non-editable fields — the user can see the form but cannot type or
+        // load any saved data.
+        $viewOnly = (service('request')->getGet('mode') === 'view');
 
     $sections = $sectionModel->getSectionsWithFields($formIds);
 
@@ -157,6 +161,52 @@ public function index($formKey = 'accuracyform')
 
         // REMOVED: Fallback to section table - we only use form_values now
         // All data is stored in form_values table
+        $dataValues = [];
+
+        $sections = $sectionModel->getSectionsWithFields($formIds);
+
+        // In view-only mode, skip data loading entirely so every field renders empty.
+        foreach (($viewOnly ? [] : $sections) as $section) {
+            // The submit path ALWAYS records into form_values (keyed by section_id) —
+            // the forms table carries no `table` column, so every save lands there.
+            // Read form_values first so saved data reflects back, regardless of
+            // whether the section carries a dynamic `table` name (classic builder
+            // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
+            $row = $db->table('form_values')
+                ->where('section_id', $section['id'])
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getRowArray();
+
+            if ($row) {
+                // values is a JSON array of row objects for repeatable tables,
+                // or a single object for grid/inline sections.
+                $dataValues[$section['id']] = json_decode($row['values'], true);
+                continue;
+            }
+
+            // Fallback: a section bound to a real table with no form_values record
+            // (legacy data written straight to its own table) reads its latest row.
+            $table = !empty($section['table']) ? $section['table'] : null;
+            if ($table && in_array($table, $db->listTables(), true)) {
+                $tableRow = $db->table($table)
+                    ->orderBy('id', 'DESC')
+                    ->get()
+                    ->getRowArray();
+
+                if ($tableRow) {
+                    $dataValues[$section['id']] = $tableRow;
+                }
+            }
+        }
+
+        return view('form_view', [
+            'form' => $form,
+            'sections' => $sections,
+            'values' => $dataValues,
+            'readonly' => $viewOnly,
+            'breadcrumb' => $form['name'] ?? 'Form',
+        ]);
     }
 
     return view('form_view', [
