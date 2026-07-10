@@ -26,10 +26,10 @@ class Database extends Config
      */
     public array $default = [
         'DSN'          => '',
-        'hostname'     => '168.144.70.184',
-        'username'     => 'chandra',
-        'password'     => '8Wt8}dO09Ps(!',
-        'database'     => 'rmt_form_builder',
+        'hostname'     => 'localhost',
+        'username'     => 'root',
+        'password'     => '',
+        'database'     => 'formbuilder',
         'DBDriver'     => 'MySQLi',
         'DBPrefix'     => '',
         'pConnect'     => false,
