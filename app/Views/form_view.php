@@ -674,12 +674,39 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     <?php endif; ?>
 
     <?php
+    helper('auth');
+
     // Get current status from form data
     $currentStatus = $form['status'] ?? 'Created';
-    $isReviewed = $currentStatus === 'Reviewed' || $currentStatus === 'Approved';
+    $isReviewed = in_array($currentStatus, ['Reviewed', 'Approved'], true);
     $isApproved = $currentStatus === 'Approved';
     $viewMode = isset($_GET['mode']) && $_GET['mode'] === 'view';
+
+    // Only the Reviewer role may toggle Reviewed, and only the Approver role may toggle Approved.
+    // Admin can do both.
+    $canToggleReviewed = has_role('Reviewer') || has_role('Admin');
+    $canToggleApproved = has_role('Approver') || has_role('Admin');
+    $approveAllowedByStatus = in_array($currentStatus, ['Reviewed', 'Approved'], true);
+    $reviewedDisabled = $canToggleReviewed ? '' : 'disabled';
+    $approvedDisabled = ($canToggleApproved && $approveAllowedByStatus) ? '' : 'disabled';
+    $reviewedTitle = $canToggleReviewed ? '' : 'title="Only reviewers or admins can change this."';
+    if (! $canToggleApproved) {
+        $approvedTitle = 'title="Only approvers or admins can change this."';
+    } elseif (! $approveAllowedByStatus) {
+        $approvedTitle = 'title="Form must be reviewed before approval."';
+    } else {
+        $approvedTitle = '';
+    }
+    $reviewedWarning = $canToggleReviewed ? '' : 'Reviewer only can change this status.';
+    if (! $canToggleApproved) {
+        $approvedWarning = 'Approver only can change this status.';
+    } elseif (! $approveAllowedByStatus) {
+        $approvedWarning = 'Form must be reviewed before approval.';
+    } else {
+        $approvedWarning = '';
+    }
     ?>
+
 
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
         <?php foreach ($sections as $index => $section): ?>
@@ -689,8 +716,8 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
 
-                <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
-
+                <!-- <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>"> -->
+<input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="form_values">
                 <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]" value="<?= esc($section['action_flag'] ?? '') ?>">
 
                 <div class="section-panel-header">
@@ -780,15 +807,21 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 
                 <form method="post" action="<?= site_url('form/update_status/' . $form['id']) ?>" class="status-form">
                     <?= csrf_field() ?>
-                    <label class="status-checkbox <?= $isReviewed ? 'checked' : '' ?>">
-                        <input type="checkbox" name="reviewed" value="1" <?= $isReviewed ? 'checked' : '' ?> onchange="this.form.submit()">
+                    <label class="status-checkbox <?= $isReviewed ? 'checked' : '' ?> <?= $canToggleReviewed ? '' : 'disabled' ?>" data-warning="<?= esc($reviewedWarning) ?>">
+                        <input type="checkbox" name="reviewed" value="1" <?= $isReviewed ? 'checked' : '' ?> <?= $reviewedDisabled ?> <?= $reviewedTitle ?> <?= $canToggleReviewed ? 'onchange="this.form.submit()"' : '' ?>>
                         <span class="checkmark"></span>
                         Reviewed
+                        <?php if (! $canToggleReviewed): ?>
+                            <span class="status-note">Only Reviewer or Admin can change this.</span>
+                        <?php endif; ?>
                     </label>
-                    <label class="status-checkbox <?= $isApproved ? 'checked' : '' ?>">
-                        <input type="checkbox" name="approved" value="1" <?= $isApproved ? 'checked' : '' ?> onchange="this.form.submit()">
+                    <label class="status-checkbox <?= $isApproved ? 'checked' : '' ?> <?= $canToggleApproved ? '' : 'disabled' ?>" data-warning="<?= esc($approvedWarning) ?>">
+                        <input type="checkbox" name="approved" value="1" <?= $isApproved ? 'checked' : '' ?> <?= $approvedDisabled ?> <?= $approvedTitle ?> <?= $canToggleApproved ? 'onchange="this.form.submit()"' : '' ?>>
                         <span class="checkmark"></span>
                         Approved
+                        <?php if (! $canToggleApproved): ?>
+                            <span class="status-note">Only Approver or Admin can change this.</span>
+                        <?php endif; ?>
                     </label>
                 </form>
             </div>
@@ -912,6 +945,24 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                         r.remove();
                     });
                 }
+            });
+        });
+    })();
+
+    // Alert on unauthorized status checkbox clicks.
+    (function() {
+        document.querySelectorAll('.status-checkbox[data-warning]').forEach(function(label) {
+            label.addEventListener('click', function(event) {
+                var warning = label.dataset.warning;
+                var input = label.querySelector('input[type="checkbox"]');
+
+                if (!input || !input.disabled || warning === '') {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                alert(warning);
             });
         });
     })();
@@ -1053,6 +1104,19 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         color: #4a5568;
         position: relative;
         user-select: none;
+    }
+
+    .status-checkbox.disabled {
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .status-note {
+        display: block;
+        margin-top: 4px;
+        font-size: 12px;
+        color: #b92b27;
+        line-height: 1.2;
     }
 
     .status-checkbox input[type="checkbox"] {
