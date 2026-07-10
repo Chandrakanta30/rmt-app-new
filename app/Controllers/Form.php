@@ -49,7 +49,8 @@ class Form extends Controller
         // View-only mode (?mode=view): render the form structure with empty,
         // non-editable fields — the user can see the form but cannot type or
         // load any saved data.
-        $viewOnly = (service('request')->getGet('mode') === 'view');
+        $request = service('request');
+        $viewOnly = ($request->getGet('mode') === 'view');
 
         // 2. Check composite
         $db = \Config\Database::connect();
@@ -73,6 +74,23 @@ class Form extends Controller
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
+        // Check if form is approved for edit access
+        $canEdit = ($form['status'] === 'Approved');
+        $asrId = (int) ($request->getGet('asr_id') ?? 0);
+
+        if ($asrId > 0) {
+            $asrMapping = $db->table('form_asr_mapping')
+                ->select('id')
+                ->where('id', $asrId)
+                ->where('form_id', $form['id'])
+                ->get()
+                ->getRow();
+
+            if (!$asrMapping) {
+                throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+            }
+        }
+
         // In view-only mode, skip data loading entirely so every field renders empty.
         foreach (($viewOnly ? [] : $sections) as $section) {
             // The submit path ALWAYS records into form_values (keyed by section_id) —
@@ -80,8 +98,14 @@ class Form extends Controller
             // Read form_values first so saved data reflects back, regardless of
             // whether the section carries a dynamic `table` name (classic builder
             // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
-            $row = $db->table('form_values')
-                ->where('section_id', $section['id'])
+            $valuesQuery = $db->table('form_values')
+                ->where('section_id', $section['id']);
+
+            if ($asrId > 0) {
+                $valuesQuery->where('asr_id', $asrId);
+            }
+
+            $row = $valuesQuery
                 ->orderBy('id', 'DESC')
                 ->get()
                 ->getRowArray();
@@ -96,7 +120,7 @@ class Form extends Controller
             // Fallback: a section bound to a real table with no form_values record
             // (legacy data written straight to its own table) reads its latest row.
             $table = !empty($section['table']) ? $section['table'] : null;
-            if ($table && in_array($table, $db->listTables(), true)) {
+            if ($asrId <= 0 && $table && in_array($table, $db->listTables(), true)) {
                 $tableRow = $db->table($table)
                     ->orderBy('id', 'DESC')
                     ->get()
@@ -112,7 +136,9 @@ class Form extends Controller
             'form' => $form,
             'sections' => $sections,
             'values' => $dataValues,
-            'readonly' => $viewOnly,
+            'readonly' => $viewOnly || !$canEdit,
+            'canEdit' => $canEdit,
+            'asrId' => $asrId,
             'breadcrumb' => $form['name'] ?? 'Form',
         ]);
     }
@@ -125,6 +151,7 @@ class Form extends Controller
 
         $sections = $request->getPost('sections');
         $formIds  = $request->getPost('form_id');
+        $asrIds   = $request->getPost('asr_id');
 
         // An unchecked checkbox submits NOTHING, so a section whose only input is
         // an unticked checkbox is entirely absent from `sections` — which used to
@@ -265,10 +292,42 @@ class Form extends Controller
 
                 // Replace this section's previous record so the saved set always
                 // reflects the full current table (rows accumulate, no duplicates).
-                $db->table('form_values')->where('section_id', $sectionId)->delete();
+                $currentFormId = $form_id[$sectionId] ?? null;
+                $currentAsrId = is_array($asrIds) ? (int) ($asrIds[$sectionId] ?? 0) : 0;
+
+                if ($currentAsrId <= 0 && $currentFormId) {
+                    $asrMapping = $db->table('form_asr_mapping')
+                        ->select('id')
+                        ->where('form_id', $currentFormId)
+                        ->orderBy('id', 'DESC')
+                        ->get()
+                        ->getRow();
+
+                    $currentAsrId = $asrMapping ? (int) $asrMapping->id : 0;
+                }
+
+                if ($currentAsrId > 0 && $currentFormId) {
+                    $asrMapping = $db->table('form_asr_mapping')
+                        ->select('id')
+                        ->where('id', $currentAsrId)
+                        ->where('form_id', $currentFormId)
+                        ->get()
+                        ->getRow();
+
+                    if (!$asrMapping) {
+                        return redirect()->back()->withInput()->with('error', 'Invalid ASR mapping for this form.');
+                    }
+                }
+
+                $deleteQuery = $db->table('form_values')->where('section_id', $sectionId);
+                if ($currentAsrId > 0) {
+                    $deleteQuery->where('asr_id', $currentAsrId);
+                }
+                $deleteQuery->delete();
 
                 $db->table('form_values')->insert([
-                    'form_id'    => $form_id[$sectionId] ?? null,
+                    'asr_id'     => $currentAsrId > 0 ? $currentAsrId : null,
+                    'form_id'    => $currentFormId,
                     'section_id' => $sectionId,
                     'values'     => json_encode($payload),
                 ]);
@@ -308,7 +367,6 @@ class Form extends Controller
                 }
             }
         }
-
 
         return redirect()->back()->with('success', 'Saved successfully');
         // return redirect('http://localhost:8888/code4/public/index.php/form')->with('success', 'Saved successfully');

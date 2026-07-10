@@ -3,6 +3,13 @@
 <?= $this->section('title') ?><?= esc($form['name']) ?><?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
+
+<?php if (!($canEdit ?? true) && !($readonly ?? false)): ?>
+    <div style="background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.3); color: #f57c00; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-weight: 500;">
+        ⓘ This form is awaiting ASR approval. Edit access will be available once the ASR number is created.
+    </div>
+<?php endif; ?>
+
 <?php
 // Only plain text/search inputs are restricted to letters/numbers/spaces.
 // email, url, tel legitimately need @ : + . etc., so they are NOT restricted.
@@ -681,6 +688,9 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
 
+                <?php if (!empty($asrId)): ?>
+                    <input type="hidden" name="asr_id[<?= esc($section['id']) ?>]" value="<?= esc($asrId) ?>">
+                <?php endif; ?>
 
                 <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
 
