@@ -28,8 +28,8 @@
         <?php endif; ?>
         <?php if (has_permission('create_asrno')): ?>
             <li class="nav-item">
-                <a href="<?= base_url('asrno') ?>"
-                    class="nav-link <?= (url_is('asrno*')) ? 'active' : '' ?>">
+                <a href="<?= base_url('asr-mapping') ?>"
+                    class="nav-link <?= (url_is('asr-mapping*')) ? 'active' : '' ?>">
                     <span class="nav-icon">A</span>
                     <span class="nav-title">ASR No.</span>
                 </a>

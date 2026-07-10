@@ -32,10 +32,12 @@ $routes->group('', ['filter' => 'permission:view_forms'], function($routes) {
 $routes->post('form/submit', 'Form::submit', ['filter' => 'permission:submit_data']);
 
 // ASR No. routes
-$routes->group('asrno', ['filter' => 'permission:create_asrno'], function($routes) {
+$routes->group('asr-mapping', ['filter' => 'permission:create_asrno'], function($routes) {
     $routes->get('/', [AsrController::class, 'index']);
     $routes->post('store', [AsrController::class, 'store']);
 });
+
+$routes->post('asr-mapping/delete/(:num)', [AsrController::class, 'delete/$1'], ['filter' => 'permission:delete_asrno']);
 
 // Admin management routes (protected by specific permission checks)
 $routes->group('users', ['filter' => 'permission:manage_users'], function($routes) {
