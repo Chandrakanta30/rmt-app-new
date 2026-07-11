@@ -24,12 +24,13 @@
                 <th style="padding: 1rem;">ASR No.</th>
                 <th style="padding: 1rem;">Form Name</th>
                 <th style="padding: 1rem;">Created At</th>
+                <th style="padding: 1rem;">Action</th>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($asrList)): ?>
                 <tr>
-                    <td colspan="4" style="padding: 2rem; text-align: center; color: #7f8c8d;">No ASR numbers found.</td>
+                    <td colspan="5" style="padding: 2rem; text-align: center; color: #7f8c8d;">No ASR numbers found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($asrList as $asr): ?>
@@ -38,6 +39,16 @@
                         <td style="padding: 1rem; font-weight: 500;"><?= esc($asr['asr_no']) ?></td>
                         <td style="padding: 1rem;"><?= esc($asr['form_name'] ?? '-') ?></td>
                         <td style="padding: 1rem; color: #7f8c8d;"><?= $asr['created_at'] ? date('d-m-Y H:i', strtotime($asr['created_at'])) : '-' ?></td>
+                        <td style="padding: 1rem;">
+                            <?php if (!empty($asr['form_key'])): ?>
+                                <a class="btn btn-primary"
+   href="<?= base_url('form/' . $asr['form_key'] . '?asr_id=' . $asr['id']) ?>">
+    Open
+</a>
+                            <?php else: ?>
+                                -
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
