@@ -30,74 +30,196 @@ class Form extends Controller
         ]);
     }
 
-    public function index($formKey = 'accuracyform')
-    {
+    // public function index($formKey = 'accuracyform')
+    // {
 
-        // return "coming";
-        $formModel = new FormModel();
-        $sectionModel = new SectionModel();
+    //     // return "coming";
+    //     $formModel = new FormModel();
+    //     $sectionModel = new SectionModel();
 
-        // 1. Get form
-        $form = $formModel->where('form_key', $formKey)->first();
-
-
-
-        if (!$form) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-        }
+    //     // 1. Get form
+    //     $form = $formModel->where('form_key', $formKey)->first();
 
 
-        // 2. Check composite
-        $db = \Config\Database::connect();
 
-        // return $db;
+    //     if (!$form) {
+    //         throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+    //     }
 
-        $childIds = $db->table('form_compositions')
-            ->select('child_form_id')
-            ->where('parent_form_id', $form['id'])
-            ->orderBy('order')
+
+    //     // 2. Check composite
+    //     $db = \Config\Database::connect();
+
+    //     // return $db;
+
+    //     $childIds = $db->table('form_compositions')
+    //         ->select('child_form_id')
+    //         ->where('parent_form_id', $form['id'])
+    //         ->orderBy('order')
+    //         ->get()
+    //         ->getResultArray();
+
+    //     if (empty($childIds)) {
+    //         $formIds = [$form['id']];
+    //     } else {
+    //         $formIds = array_column($childIds, 'child_form_id');
+    //     }
+
+    //     $dataValues = [];
+
+    //     $sections = $sectionModel->getSectionsWithFields($formIds);
+
+    //     foreach ($sections as $section) {
+    //         // The submit path ALWAYS records into form_values (keyed by section_id) —
+    //         // the forms table carries no `table` column, so every save lands there.
+    //         // Read form_values first so saved data reflects back, regardless of
+    //         // whether the section carries a dynamic `table` name (classic builder
+    //         // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
+    //         $row = $db->table('form_values')
+    //             ->where('section_id', $section['id'])
+    //             ->orderBy('id', 'DESC')
+    //             ->get()
+    //             ->getRowArray();
+
+    //         if ($row) {
+    //             // values is a JSON array of row objects for repeatable tables,
+    //             // or a single object for grid/inline sections.
+    //             $dataValues[$section['id']] = json_decode($row['values'], true);
+    //             continue;
+    //         }
+
+    //         // Fallback: a section bound to a real table with no form_values record
+    //         // (legacy data written straight to its own table) reads its latest row.
+    //         $table = !empty($section['table']) ? $section['table'] : null;
+    //         if ($table && in_array($table, $db->listTables(), true)) {
+    //             $tableRow = $db->table($table)
+    //                 ->orderBy('id', 'DESC')
+    //                 ->get()
+    //                 ->getRowArray();
+
+    //             if ($tableRow) {
+    //                 $dataValues[$section['id']] = $tableRow;
+    //             }
+    //         }
+    //     }
+
+    //     return view('form_view', [
+    //         'form' => $form,
+    //         'sections' => $sections,
+    //         'values' => $dataValues,
+    //         'breadcrumb' => $form['name'] ?? 'Form',
+    //     ]);
+    // }
+public function index($formKey = 'accuracyform')
+{
+    $formModel = new FormModel();
+    $sectionModel = new SectionModel();
+
+    // 1. Get form
+    $form = $formModel->where('form_key', $formKey)->first();
+
+    if (!$form) {
+        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+    }
+
+    // 2. Check composite
+    $db = \Config\Database::connect();
+
+    $childIds = $db->table('form_compositions')
+        ->select('child_form_id')
+        ->where('parent_form_id', $form['id'])
+        ->orderBy('order')
+        ->get()
+        ->getResultArray();
+
+    if (empty($childIds)) {
+        $formIds = [$form['id']];
+    } else {
+        $formIds = array_column($childIds, 'child_form_id');
+    }
+
+    $dataValues = [];
+        // View-only mode (?mode=view): render the form structure with empty,
+        // non-editable fields — the user can see the form but cannot type or
+        // load any saved data.
+        $request = service('request');
+        $viewOnly = ($request->getGet('mode') === 'view');
+
+    $sections = $sectionModel->getSectionsWithFields($formIds);
+
+    foreach ($sections as $section) {
+        // Read form_values first so saved data reflects back
+        $row = $db->table('form_values')
+            ->where('section_id', $section['id'])
+            ->orderBy('id', 'DESC')
             ->get()
-            ->getResultArray();
+            ->getRowArray();
 
-        if (empty($childIds)) {
-            $formIds = [$form['id']];
-        } else {
-            $formIds = array_column($childIds, 'child_form_id');
+        if ($row) {
+            $dataValues[$section['id']] = json_decode($row['values'], true);
+            continue;
         }
 
+        // REMOVED: Fallback to section table - we only use form_values now
+        // All data is stored in form_values table
         $dataValues = [];
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
-        foreach ($sections as $section) {
-            // Table-less sections store submissions in form_values (keyed by section_id);
-            // sections bound to a real table read their own latest row.
-            $table = !empty($section['table']) ? $section['table'] : 'form_values';
+        // Check if form is approved for edit access
+        $canEdit = ($form['status'] === 'Approved');
+        $asrId = (int) ($request->getGet('asr_id') ?? 0);
 
-            if ($table === 'form_values') {
-                $row = $db->table('form_values')
-                    ->where('section_id', $section['id'])
+        if ($asrId > 0) {
+            $asrMapping = $db->table('form_asr_mapping')
+                ->select('id')
+                ->where('id', $asrId)
+                ->where('form_id', $form['id'])
+                ->get()
+                ->getRow();
+
+            if (!$asrMapping) {
+                throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+            }
+        }
+
+        // In view-only mode, skip data loading entirely so every field renders empty.
+        foreach (($viewOnly ? [] : $sections) as $section) {
+            // The submit path ALWAYS records into form_values (keyed by section_id) —
+            // the forms table carries no `table` column, so every save lands there.
+            // Read form_values first so saved data reflects back, regardless of
+            // whether the section carries a dynamic `table` name (classic builder
+            // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
+            $valuesQuery = $db->table('form_values')
+                ->where('section_id', $section['id']);
+
+            if ($asrId > 0) {
+                $valuesQuery->where('asr_id', $asrId);
+            }
+
+            $row = $valuesQuery
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getRowArray();
+
+            if ($row) {
+                // values is a JSON array of row objects for repeatable tables,
+                // or a single object for grid/inline sections.
+                $dataValues[$section['id']] = json_decode($row['values'], true);
+                continue;
+            }
+
+            // Fallback: a section bound to a real table with no form_values record
+            // (legacy data written straight to its own table) reads its latest row.
+            $table = !empty($section['table']) ? $section['table'] : null;
+            if ($asrId <= 0 && $table && in_array($table, $db->listTables(), true)) {
+                $tableRow = $db->table($table)
                     ->orderBy('id', 'DESC')
                     ->get()
                     ->getRowArray();
 
-                if ($row) {
-                    // values is a JSON array of row objects for repeatable tables,
-                    // or a single object for grid/inline sections.
-                    $dataValues[$section['id']] = json_decode($row['values'], true);
-                }
-            } else {
-                if (!in_array($table, $db->listTables(), true)) {
-                    continue;
-                }
-
-                $row = $db->table($table)
-                    ->orderBy('id', 'DESC')
-                    ->get()
-                    ->getRowArray();
-
-                if ($row) {
-                    $dataValues[$section['id']] = $row;
+                if ($tableRow) {
+                    $dataValues[$section['id']] = $tableRow;
                 }
             }
         }
@@ -106,10 +228,20 @@ class Form extends Controller
             'form' => $form,
             'sections' => $sections,
             'values' => $dataValues,
+            'readonly' => $viewOnly || !$canEdit,
+            'canEdit' => $canEdit,
+            'asrId' => $asrId,
             'breadcrumb' => $form['name'] ?? 'Form',
         ]);
     }
 
+    return view('form_view', [
+        'form' => $form,
+        'sections' => $sections,
+        'values' => $dataValues,
+        'breadcrumb' => $form['name'] ?? 'Form',
+    ]);
+}
     public function submit()
     {
         $request = service('request');
@@ -118,6 +250,7 @@ class Form extends Controller
 
         $sections = $request->getPost('sections');
         $formIds  = $request->getPost('form_id');
+        $asrIds   = $request->getPost('asr_id');
 
         // An unchecked checkbox submits NOTHING, so a section whose only input is
         // an unticked checkbox is entirely absent from `sections` — which used to
@@ -258,12 +391,56 @@ class Form extends Controller
 
                 // Replace this section's previous record so the saved set always
                 // reflects the full current table (rows accumulate, no duplicates).
-                $db->table('form_values')->where('section_id', $sectionId)->delete();
+                $currentFormId = $form_id[$sectionId] ?? null;
+                $currentAsrId = is_array($asrIds) ? (int) ($asrIds[$sectionId] ?? 0) : 0;
+
+                if ($currentAsrId <= 0 && $currentFormId) {
+                    $asrMapping = $db->table('form_asr_mapping')
+                        ->select('id')
+                        ->where('form_id', $currentFormId)
+                        ->orderBy('id', 'DESC')
+                        ->get()
+                        ->getRow();
+
+                    $currentAsrId = $asrMapping ? (int) $asrMapping->id : 0;
+                }
+
+                if ($currentAsrId > 0 && $currentFormId) {
+                    $asrMapping = $db->table('form_asr_mapping')
+                        ->select('id')
+                        ->where('id', $currentAsrId)
+                        ->where('form_id', $currentFormId)
+                        ->get()
+                        ->getRow();
+
+                    if (!$asrMapping) {
+                        return redirect()->back()->withInput()->with('error', 'Invalid ASR mapping for this form.');
+                    }
+                }
+
+                $deleteQuery = $db->table('form_values')->where('section_id', $sectionId);
+                if ($currentAsrId > 0) {
+                    $deleteQuery->where('asr_id', $currentAsrId);
+                }
+                $deleteQuery->delete();
 
                 $db->table('form_values')->insert([
-                    'form_id'    => $form_id[$sectionId] ?? null,
+                    'asr_id'     => $currentAsrId > 0 ? $currentAsrId : null,
+                    'form_id'    => $currentFormId,
                     'section_id' => $sectionId,
                     'values'     => json_encode($payload),
+                ]);
+
+                // Audit log: record every form_values save.
+                $formValueId = $db->insertID();
+                $db->table('audit_logs')->insert([
+                    'user_id'    => session()->get('user_id'),
+                    'action'     => 'save',
+                    'module'     => 'form_values',
+                    'entity_id'  => $formValueId,
+                    'remark'     => 'Saved form_values (form_id: ' . ($form_id[$sectionId] ?? 'null')
+                        . ', section_id: ' . $sectionId . ')',
+                    'created_at' => date('Y-m-d H:i:s'),
                 ]);
             } else {
 
@@ -302,270 +479,53 @@ class Form extends Controller
             }
         }
 
-
         return redirect()->back()->with('success', 'Saved successfully');
         // return redirect('http://localhost:8888/code4/public/index.php/form')->with('success', 'Saved successfully');
         // return redirect()->back()->with('success', 'Saved successfully');
     }
-    public function intermediateList()
-    {
-        $sections = $this->instrumentSections();
+  public function updateStatus($formId)
+{
+    helper('auth');
+    $request = service('request');
+    $db = \Config\Database::connect();
+    
+    $reviewed = $request->getPost('reviewed') ? 1 : 0;
+    $approved = $request->getPost('approved') ? 1 : 0;
 
-        return view('pages/instrument', [
-            'breadcrumb' => 'Intermediate Precision',
-            'instrumentTitle' => 'Instrument Method',
-            'instrumentSections' => $sections,
-            'instrumentValues' => $this->instrumentValues(),
+    $form = $db->table('forms')->select('status')->where('id', $formId)->get()->getRowArray();
+    if (! $form) {
+        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+    }
+    $currentStatus = $form['status'] ?? 'Created';
+
+    // Only authorized roles may toggle these values.
+    if (!has_role('Reviewer') && !has_role('Admin')) {
+        $reviewed = 0;
+    }
+    if (!has_role('Approver') && !has_role('Admin')) {
+        $approved = 0;
+    }
+
+    // Approval only allowed after review.
+    if ($approved === 1 && !in_array($currentStatus, ['Reviewed', 'Approved'], true)) {
+        return redirect()->back()->with('error', 'Form must be reviewed before it can be approved.');
+    }
+    
+    // Determine status based on checkboxes
+    if ($approved == 1) {
+        $status = 'Approved';
+    } elseif ($reviewed == 1) {
+        $status = 'Reviewed';
+    } else {
+        $status = 'Created';
+    }
+    
+    $db->table('forms')
+        ->where('id', $formId)
+        ->update([
+            'status' => $status
         ]);
-    }
-
-    private function instrumentValues(): array
-    {
-        return [];
-    }
-
-    private function instrumentSections(): array
-    {
-        $field = static function (string $label, string $name, string $default, int $span = 1): array {
-            return [
-                'label' => $label,
-                'name' => $name,
-                'default' => $default,
-                'span' => $span,
-            ];
-        };
-
-        return [
-            [
-                'title' => 'Particle Type',
-                'rows' => [
-                    [
-                        $field('Non-spherical particle mode', 'non_spherical_particle_mode', 'Yes'),
-                        $field('Is Fraunhofer type', 'is_fraunhofer_type', 'No'),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Material Properties',
-                'rows' => [
-                    [
-                        $field('Material name', 'material_name', 'Pantoprazole sodium USP (PAS)'),
-                        $field('Refractive index', 'refractive_index', '1.600'),
-                    ],
-                    [
-                        $field('Absorption index', 'absorption_index', '0.001'),
-                        $field('Particle density', 'particle_density', '1.05 g/cm3'),
-                    ],
-                    [
-                        $field('Different optical properties in blue light', 'different_optical_properties_in_blue_light', 'Yes'),
-                        $field('Refractive index (in blue light)', 'refractive_index_blue_light', '1.600'),
-                    ],
-                    [
-                        $field('Absorption index (in blue light)', 'absorption_index_blue_light', '0.001', 3),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Dispersant Properties',
-                'rows' => [
-                    [
-                        $field('Dispersant name', 'dispersant_name', 'n-Hexane'),
-                        $field('Refractive index', 'dispersant_refractive_index', '1.380'),
-                    ],
-                    [
-                        $field('Level sensor threshold', 'level_sensor_threshold', '5.000', 3),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Measurement Duration',
-                'rows' => [
-                    [
-                        $field('Background measurement duration (red)', 'background_measurement_duration_red', '5.00 sec'),
-                        $field('Sample measurement duration (red)', 'sample_measurement_duration_red', '30 sec'),
-                    ],
-                    [
-                        $field('Perform blue light measurement?', 'perform_blue_light_measurement', 'Yes'),
-                        $field('Background measurement duration (blue)', 'background_measurement_duration_blue', '5.00 sec'),
-                    ],
-                    [
-                        $field('Sample measurement duration (blue)', 'sample_measurement_duration_blue', 'Yes'),
-                        $field('Assess light background stability', 'assess_light_background_stability', 'No'),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Measurement Sequence',
-                'rows' => [
-                    [
-                        $field('Aliquots', 'aliquots', '5.00 sec'),
-                        $field('Automatic number of measurements', 'automatic_number_of_measurements', '30 sec'),
-                    ],
-                    [
-                        $field('Pre-alignment delay', 'pre_alignment_delay', 'Yes'),
-                        $field('Number of measurements', 'number_of_measurements', '5.00 sec'),
-                    ],
-                    [
-                        $field('SDelay between measurements', 'delay_between_measurements', 'Yes'),
-                        $field('Pre-measurement delay', 'pre_measurement_delay', 'No'),
-                    ],
-                    [
-                        $field('Close measurement window after measurement', 'close_measurement_window_after_measurement', 'No', 3),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Measurement Obscuration Settings',
-                'rows' => [
-                    [
-                        $field('Auto start measurement', 'auto_start_measurement', '5.00 sec'),
-                        $field('Obscuration low limit', 'obscuration_low_limit', '30 sec'),
-                    ],
-                    [
-                        $field('Obscuration high limit', 'obscuration_high_limit', 'Yes'),
-                        $field('Enable obscuration filtering', 'enable_obscuration_filtering', '5.00 sec'),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Measurement Alarms',
-                'rows' => [
-                    [
-                        $field('Use Background Check', 'use_background_check', '5.00 sec'),
-                        $field('Background Check Limits', 'background_check_limits', '30 sec'),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Accessory Control Settings',
-                'rows' => [
-                    [
-                        $field('Accessory name', 'accessory_name', '5.00 sec'),
-                        $field('Is accessory dry?', 'is_accessory_dry', '30 sec'),
-                    ],
-                    [
-                        $field('Stirrer speed', 'stirrer_speed', 'Yes'),
-                        $field('Ultrasound percentage', 'ultrasound_percentage', '5.00 sec'),
-                    ],
-                    [
-                        $field('Fill dispersant source identifier', 'fill_dispersant_source_identifier', 'Yes'),
-                        $field('Manual tank fill?', 'manual_tank_fill', 'No'),
-                    ],
-                    [
-                        $field('Degas after tank and cell fill', 'degas_after_tank_and_cell_fill', 'Yes'),
-                        $field('Sonicate to stability?', 'sonicate_to_stability', 'No'),
-                    ],
-                    [
-                        $field('Ultrasound mode', 'ultrasound_mode', 'No', 3),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Pre-Measurement Clean Sequence Settings',
-                'rows' => [
-                    [
-                        $field('Pre-clean sequence type', 'pre_clean_sequence_type', '5.00 sec'),
-                        $field('Sonicate During Pre-Clean?', 'sonicate_during_pre_clean', '30 sec'),
-                    ],
-                    [
-                        $field('Manually Fill Tank During Pre-Clean?', 'manually_fill_tank_during_pre_clean', 'Yes'),
-                        $field('Pre-Clean Dispersant Source Identifier', 'pre_clean_dispersant_source_identifier', '5.00 sec'),
-                    ],
-                    [
-                        $field('Pre-clean Dispersant Level Sensor Threshold', 'pre_clean_dispersant_level_sensor_threshold', 'Yes'),
-                        $field('Degas After Pre-Clean?', 'degas_after_pre_clean', 'No'),
-                    ],
-                    [
-                        $field('Drain Valve Flush?', 'drain_valve_flush_pre_clean', 'Yes'),
-                        $field('Tank Overfill?', 'tank_overfill_pre_clean', 'No'),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Post-Measurement Clean Sequence Settings',
-                'rows' => [
-                    [
-                        $field('Clean sequence type', 'clean_sequence_type', '5.00 sec'),
-                        $field('Sonicate during clean?', 'sonicate_during_clean', '30 sec'),
-                    ],
-                    [
-                        $field('Manually Fill Tank During Clean?', 'manually_fill_tank_during_clean', 'Yes'),
-                        $field('Pre-clean Dispersant Source Identifier', 'pre_clean_dispersant_source_identifier_clean', '5.00 sec'),
-                    ],
-                    [
-                        $field('Pre-Clean Dispersant Level Sensor Threshold', 'pre_clean_dispersant_level_sensor_threshold_clean', 'Yes'),
-                        $field('Degas After Clean?', 'degas_after_clean', 'No'),
-                    ],
-                    [
-                        $field('Drain Valve Flush?', 'drain_valve_flush_post_clean', 'No'),
-                        $field('Tank Overfill?', 'tank_overfill_post_clean', 'No'),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Analysis Settings',
-                'rows' => [
-                    [
-                        $field('Analysis model', 'analysis_model', 'No', 3),
-                    ],
-                    [
-                        $field('Blue light detectors excluded', 'blue_light_detectors_excluded', '5.00 sec'),
-                        $field('Fine powder mode', 'fine_powder_mode', '30 sec'),
-                    ],
-                    [
-                        $field('Analysis sensitivity', 'analysis_sensitivity', 'Yes'),
-                        $field('Analysed as Mastersizer 3000E?', 'analysed_as_mastersizer_3000e', '5.00 sec'),
-                    ],
-                    [
-                        $field('Close measurement window after measurement', 'close_measurement_window_after_measurement_analysis', 'No', 3),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Result Settings',
-                'rows' => [
-                    [
-                        $field('Result range is limited', 'result_range_is_limited', '5.00 sec'),
-                        $field('Result Unit', 'result_unit', '30 sec'),
-                    ],
-                    [
-                        $field('Extend Result', 'extend_result', 'Yes'),
-                        $field('Result Emulation', 'result_emulation', '5.00 sec'),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'User Sizes for Histograms and Tables',
-                'rows' => [
-                    [
-                        $field('Use user sizes', 'use_user_sizes', 'No', 3),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Data Export Output',
-                'rows' => [
-                    [
-                        $field('Enabled?', 'data_export_enabled', 'No', 3),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Averaging',
-                'rows' => [
-                    [
-                        $field('Averaging enabled?', 'averaging_enabled', 'No', 3),
-                    ],
-                ],
-            ],
-            [
-                'title' => 'Printing Options',
-                'rows' => [
-                    [
-                        $field('Printing enabled?', 'printing_enabled', 'No', 3),
-                    ],
-                ],
-            ],
-        ];
-    }
+    
+    return redirect()->back()->with('success', 'Status updated successfully');
+}
 }
