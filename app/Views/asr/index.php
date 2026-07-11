@@ -2,7 +2,10 @@
 
 <?= $this->section('title') ?>ASR No.<?= $this->endSection() ?>
 
-<?php $hasModalError = session()->getFlashdata('error') || session()->getFlashdata('errors'); ?>
+<?php
+$hasModalError = session()->getFlashdata('error') || session()->getFlashdata('errors');
+$deleteSuccess = session()->getFlashdata('delete_success');
+?>
 
 <?= $this->section('content') ?>
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -16,6 +19,12 @@
     </div>
 <?php endif; ?>
 
+<?php if (session()->getFlashdata('delete_error')): ?>
+    <div style="background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #c0392b; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem;">
+        <?= session()->getFlashdata('delete_error') ?>
+    </div>
+<?php endif; ?>
+
 <div class="protocol-card" style="padding: 0; overflow-x: auto;">
     <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
         <thead>
@@ -24,7 +33,9 @@
                 <th style="padding: 1rem;">ASR No.</th>
                 <th style="padding: 1rem;">Form Name</th>
                 <th style="padding: 1rem;">Created At</th>
-                <th style="padding: 1rem;">Action</th>
+                <?php if (has_permission('delete_asrno')): ?>
+                    <th style="padding: 1rem;">Actions</th>
+                <?php endif; ?>
             </tr>
         </thead>
         <tbody>
@@ -39,16 +50,11 @@
                         <td style="padding: 1rem; font-weight: 500;"><?= esc($asr['asr_no']) ?></td>
                         <td style="padding: 1rem;"><?= esc($asr['form_name'] ?? '-') ?></td>
                         <td style="padding: 1rem; color: #7f8c8d;"><?= $asr['created_at'] ? date('d-m-Y H:i', strtotime($asr['created_at'])) : '-' ?></td>
-                        <td style="padding: 1rem;">
-                            <?php if (!empty($asr['form_key'])): ?>
-                                <a class="btn btn-primary"
-   href="<?= base_url('form/' . $asr['form_key'] . '?asr_id=' . $asr['id']) ?>">
-    Open
-</a>
-                            <?php else: ?>
-                                -
-                            <?php endif; ?>
-                        </td>
+                        <?php if (has_permission('delete_asrno')): ?>
+                            <td style="padding: 1rem;">
+                                <button type="button" class="btn btn-ghost" style="color:#c0392b;" onclick="openAsrDeleteModal(<?= (int) $asr['id'] ?>, '<?= esc($asr['asr_no'], 'js') ?>')">Delete</button>
+                            </td>
+                        <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -79,7 +85,7 @@
             </div>
         <?php endif; ?>
 
-        <form action="<?= base_url('asrno/store') ?>" method="POST">
+        <form action="<?= base_url('asr-mapping/store') ?>" method="POST">
             <?= csrf_field() ?>
             <div class="form-group">
                 <label for="asr_no">ASR Number</label>
@@ -106,4 +112,54 @@
         </form>
     </div>
 </div>
+
+<?php if (has_permission('delete_asrno')): ?>
+<div id="asrDeleteModal" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); align-items: center; justify-content: center; z-index: 1100;">
+    <div class="protocol-card" style="width: 100%; max-width: 480px; margin: 0 1rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 1.25rem;">
+            <h3 style="margin:0;">Delete ASR No.</h3>
+            <button type="button" onclick="closeAsrDeleteModal()" style="border:none; background:none; font-size:1.25rem; cursor:pointer; color:#7f8c8d;">&times;</button>
+        </div>
+
+        <p style="margin-top:0;">Deleting <strong id="asrDeleteNoLabel"></strong>. This can't be undone from this screen. Please provide a reason.</p>
+
+        <form id="asrDeleteForm" method="POST">
+            <?= csrf_field() ?>
+            <div class="form-group">
+                <label for="delete_remark">Reason for deletion</label>
+                <textarea id="delete_remark" name="delete_remark" rows="3" required placeholder="Why is this ASR No. being deleted?"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-danger" style="flex: 1; background:#c0392b; color:#fff;">Delete</button>
+                <button type="button" class="btn btn-ghost" style="flex: 1;" onclick="closeAsrDeleteModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($deleteSuccess): ?>
+<div id="asrDeleteSuccessModal" style="display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.5); align-items: center; justify-content: center; z-index: 1100;">
+    <div class="protocol-card" style="width: 100%; max-width: 380px; margin: 0 1rem; text-align: center; padding: 2rem;">
+        <div style="width:56px; height:56px; border-radius:50%; background:rgba(40,150,114,0.15); color:#1e6f5c; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem; font-size:1.5rem;">&#10003;</div>
+        <h3 style="margin:0 0 0.5rem;">Success</h3>
+        <p style="color:#7f8c8d; margin:0 0 1.5rem;"><?= esc($deleteSuccess) ?></p>
+        <button type="button" class="btn btn-success" style="width: 100%;" onclick="document.getElementById('asrDeleteSuccessModal').style.display='none'">OK</button>
+    </div>
+</div>
+<?php endif; ?>
+
+<script>
+    function openAsrDeleteModal(id, asrNo) {
+        document.getElementById('asrDeleteForm').action = '<?= base_url('asr-mapping/delete') ?>/' + id;
+        document.getElementById('asrDeleteNoLabel').textContent = asrNo;
+        document.getElementById('delete_remark').value = '';
+        document.getElementById('asrDeleteModal').style.display = 'flex';
+    }
+
+    function closeAsrDeleteModal() {
+        document.getElementById('asrDeleteModal').style.display = 'none';
+    }
+</script>
 <?= $this->endSection() ?>

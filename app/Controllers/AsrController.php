@@ -3,7 +3,9 @@
 namespace App\Controllers;
 
 use App\Models\AsrModel;
+use App\Models\AuditLogModel;
 use App\Models\FormModel;
+use CodeIgniter\Database\Exceptions\DatabaseException;
 
 class AsrController extends BaseController
 {
@@ -52,11 +54,54 @@ class AsrController extends BaseController
             return redirect()->back()->withInput()->with('error', 'This ASR number has already been used. Please enter a new, unique ASR number.');
         }
 
-        $asrModel->insert([
-            'asr_no'  => $asrNo,
-            'form_id' => $formId,
-        ]);
+        try {
+            $asrId = $asrModel->insert([
+                'asr_no'  => $asrNo,
+                'form_id' => $formId,
+            ]);
+        } catch (DatabaseException $e) {
+            return redirect()->back()->withInput()->with('error', 'This ASR number has already been used. Please enter a new, unique ASR number.');
+        }
 
-        return redirect()->to(base_url('asrno'))->with('success', 'ASR No. created successfully.');
+        (new AuditLogModel())->record(
+            'create',
+            'asr_no',
+            $asrId,
+            "Created ASR No. '{$asrNo}' for form '{$form['name']}'."
+        );
+
+        return redirect()->to(base_url('asr-mapping'))->with('success', 'ASR No. created successfully.');
+    }
+
+    public function delete($id)
+    {
+        $rules = [
+            'delete_remark' => 'required|max_length[500]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->to(base_url('asr-mapping'))->with('delete_error', 'A remark is required to delete an ASR No.');
+        }
+
+        $asrModel = new AsrModel();
+        $asr = $asrModel->where('deleted_at', null)->find($id);
+
+        if (!$asr) {
+            return redirect()->to(base_url('asr-mapping'))->with('delete_error', 'ASR No. not found.');
+        }
+
+        $remark = trim((string) $this->request->getPost('delete_remark'));
+        $userId = (int) session()->get('user_id');
+
+        $asrModel->softDelete((int) $id, $userId);
+
+        (new AuditLogModel())->record(
+            'delete',
+            'asr_no',
+            (int) $id,
+            $remark
+        );
+
+        return redirect()->to(base_url('asr-mapping'))->with('delete_success', 'ASR No. deleted successfully.');
     }
 }
