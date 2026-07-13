@@ -52,6 +52,7 @@ $deleteSuccess = session()->getFlashdata('delete_success');
                         <td style="padding: 1rem; color: #7f8c8d;"><?= $asr['created_at'] ? date('d-m-Y H:i', strtotime($asr['created_at'])) : '-' ?></td>
                         <?php if (has_permission('delete_asrno')): ?>
                             <td style="padding: 1rem;">
+                                <a class="btn btn-primary" href="<?= base_url('form/' . $asr['form_key'].'?asr='. $asr['id']) ?>">Open form</a>
                                 <button type="button" class="btn btn-ghost" style="color:#c0392b;" onclick="openAsrDeleteModal(<?= (int) $asr['id'] ?>, '<?= esc($asr['asr_no'], 'js') ?>')">Delete</button>
                             </td>
                         <?php endif; ?>
