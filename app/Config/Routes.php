@@ -40,6 +40,7 @@ $routes->group('asr-mapping', ['filter' => 'permission:create_asrno'], function(
 
 $routes->post('asr-mapping/delete/(:num)', [AsrController::class, 'delete/$1'], ['filter' => 'permission:delete_asrno']);
 $routes->post('asr-mapping/update/(:num)', [AsrController::class, 'update/$1'], ['filter' => 'permission:update_asrno']);
+$routes->get('asr-mapping/audit-log/(:num)', [AsrController::class, 'auditLog/$1'], ['filter' => 'permission:view_audit_log']);
 
 // Admin management routes (protected by specific permission checks)
 $routes->group('users', ['filter' => 'permission:manage_users'], function($routes) {

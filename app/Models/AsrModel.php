@@ -19,8 +19,10 @@ class AsrModel extends Model
 
     public function getWithFormDetails()
     {
-        return $this->select('form_asr_mapping.*, forms.name as form_name, forms.form_key')
+        return $this->select('form_asr_mapping.*, forms.name as form_name, forms.form_key, creator.name as created_by_name')
             ->join('forms', 'forms.id = form_asr_mapping.form_id', 'left')
+            ->join('audit_logs', "audit_logs.entity_id = form_asr_mapping.id AND audit_logs.module = 'asr_no' AND audit_logs.action = 'create'", 'left')
+            ->join('users creator', 'creator.id = audit_logs.user_id', 'left')
             ->where('form_asr_mapping.deleted_at', null)
             ->orderBy('form_asr_mapping.id', 'DESC')
             ->findAll();
