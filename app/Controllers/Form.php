@@ -409,15 +409,35 @@ public function index($formKey = 'accuracyform')
 
                 // Audit log: record every form_values save.
                 $formValueId = $db->insertID();
+                $savedAt     = date('Y-m-d H:i:s');
+                $savedBy     = session()->get('user_id');
+
                 $db->table('audit_logs')->insert([
-                    'user_id'    => session()->get('user_id'),
+                    'user_id'    => $savedBy,
                     'action'     => 'save',
                     'module'     => 'form_values',
                     'entity_id'  => $formValueId,
-                    'remark'     => 'Saved form_values (form_id: ' . ($form_id[$sectionId] ?? 'null')
+                    'remark'     => 'Saved form_values (form_id: ' . ($currentFormId ?? 'null')
                         . ', section_id: ' . $sectionId . ')',
-                    'created_at' => date('Y-m-d H:i:s'),
+                    'created_at' => $savedAt,
                 ]);
+
+
+                if ($currentFormId) {
+                    $db->table('audit_logs')->insert([
+                        'user_id'    => $savedBy,
+                        'action'     => 'save_data',
+                        'module'     => 'forms',
+                        'entity_id'  => $currentFormId,
+                        'remark'     => 'Saved data for section ' . $sectionId,
+                        'created_at' => $savedAt,
+                    ]);
+
+                    $db->table('forms')->where('id', $currentFormId)->update([
+                        'updated_by' => $savedBy,
+                        'updated_at' => $savedAt,
+                    ]);
+                }
             } else {
 
                 // ⚠️ SECURITY: validate table name
@@ -459,49 +479,143 @@ public function index($formKey = 'accuracyform')
         // return redirect('http://localhost:8888/code4/public/index.php/form')->with('success', 'Saved successfully');
         // return redirect()->back()->with('success', 'Saved successfully');
     }
-  public function updateStatus($formId)
-{
-    helper('auth');
-    $request = service('request');
-    $db = \Config\Database::connect();
-    
-    $reviewed = $request->getPost('reviewed') ? 1 : 0;
-    $approved = $request->getPost('approved') ? 1 : 0;
 
-    $form = $db->table('forms')->select('status')->where('id', $formId)->get()->getRowArray();
-    if (! $form) {
-        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-    }
-    $currentStatus = $form['status'] ?? 'Created';
+    public function updateStatus($formId)
+    {
+        helper(['auth', 'workflow']);
 
-    // Only authorized roles may toggle these values.
-    if (!has_role('Reviewer') && !has_role('Admin')) {
-        $reviewed = 0;
-    }
-    if (!has_role('Approver') && !has_role('Admin')) {
-        $approved = 0;
-    }
+        $request = service('request');
+        $db      = \Config\Database::connect();
 
-    // Approval only allowed after review.
-    if ($approved === 1 && !in_array($currentStatus, ['Reviewed', 'Approved'], true)) {
-        return redirect()->back()->with('error', 'Form must be reviewed before it can be approved.');
-    }
-    
-    // Determine status based on checkboxes
-    if ($approved == 1) {
-        $status = 'Approved';
-    } elseif ($reviewed == 1) {
-        $status = 'Reviewed';
-    } else {
-        $status = 'Created';
-    }
-    
-    $db->table('forms')
-        ->where('id', $formId)
-        ->update([
-            'status' => $status
+        $actionName = (string) $request->getPost('action');
+        $remark     = trim((string) $request->getPost('remark'));
+
+        $action = workflow_action($actionName);
+        if (!$action) {
+            return redirect()->back()->with('error', 'Unknown action.');
+        }
+
+        $form = $db->table('forms')->select('id, name, status')->where('id', $formId)->get()->getRowArray();
+        if (!$form) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+        $currentStatus = $form['status'] ?: 'created';
+
+        if (!has_permission($action['permission'])) {
+            return redirect()->back()->with('error', 'You are not allowed to ' . lcfirst($action['label']) . '.');
+        }
+
+        // Guard the state machine: you can only fire an action from a status it
+        // is actually legal in. This is what stops "approve" jumping the review.
+        if (!in_array($currentStatus, $action['from'], true)) {
+            return redirect()->back()->with(
+                'error',
+                'Cannot ' . lcfirst($action['label']) . ' — the form is currently "'
+                    . workflow_status_label($currentStatus) . '".'
+            );
+        }
+
+        // Rejections must say why. That message is what the analyst redoes from.
+        if ($action['remark'] && $remark === '') {
+            return redirect()->back()->with('error', 'A reason is required to ' . lcfirst($action['label']) . '.');
+        }
+
+        $newStatus = $action['to'];
+        $userId    = session()->get('user_id');
+        $now       = date('Y-m-d H:i:s');
+
+        $db->transStart();
+
+        $db->table('forms')->where('id', $formId)->update([
+            'status'     => $newStatus,
+            'updated_by' => $userId,
+            'updated_at' => $now,
         ]);
-    
-    return redirect()->back()->with('success', 'Status updated successfully');
-}
+
+        // One row in audit_logs is the whole history
+  
+        $db->table('audit_logs')->insert([
+            'user_id'         => $userId,
+            'action'          => $actionName,
+            'module'          => 'forms',
+            'entity_id'       => $formId,
+            'remark'          => $remark !== '' ? $remark : null,
+            'request_payload' => json_encode([
+                'from_status' => $currentStatus,
+                'to_status'   => $newStatus,
+            ]),
+            'current_record'  => json_encode($form),
+            'created_at'      => $now,
+        ]);
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Could not update the status. Please try again.');
+        }
+
+        return redirect()->back()->with(
+            'success',
+            $form['name'] . ' is now "' . workflow_status_label($newStatus) . '".'
+        );
+    }
+
+
+    public function logs($formId)
+    {
+        helper('workflow');
+
+        $db = \Config\Database::connect();
+
+        $form = $db->table('forms f')
+            ->select('f.*, cu.name AS created_by_name, uu.name AS updated_by_name')
+            ->join('users cu', 'cu.id = f.created_by', 'left')
+            ->join('users uu', 'uu.id = f.updated_by', 'left')
+            ->where('f.id', $formId)
+            ->get()
+            ->getRowArray();
+
+        if (!$form) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+
+        $auditLogs = $db->table('audit_logs a')
+            ->select('a.*, u.name AS user_name, u.email AS user_email')
+            ->join('users u', 'u.id = a.user_id', 'left')
+            ->where('a.module', 'forms')
+            ->where('a.entity_id', $formId)
+            ->orderBy('a.id', 'ASC')
+            ->get()
+            ->getResultArray();
+
+
+        $prevUser = $form['created_by_name'] ?: null;
+        $prevAt   = $form['created_at'] ?: null;
+
+        foreach ($auditLogs as &$log) {
+            $payload            = json_decode((string) $log['request_payload'], true) ?: [];
+            $log['from_status'] = $payload['from_status'] ?? null;
+            $log['to_status']   = $payload['to_status'] ?? null;
+
+            $log['created_by_name'] = $prevUser;
+            $log['created_on']      = $prevAt;
+            $log['updated_by_name'] = $log['user_name'];
+            $log['updated_on']      = $log['created_at'];
+
+            $prevUser = $log['user_name'];
+            $prevAt   = $log['created_at'];
+        }
+        unset($log);
+
+        // Newest first for display.
+        $auditLogs = array_reverse($auditLogs);
+
+        return view('forms/logs', [
+            'form'       => $form,
+            'auditLogs'  => $auditLogs,
+            'breadcrumb' => 'Audit log',
+        ]);
+    }
 }
