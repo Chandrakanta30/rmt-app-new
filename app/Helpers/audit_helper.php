@@ -94,3 +94,60 @@ if (!function_exists('audit_pretty_body')) {
         return $json === false ? '-' : $json;
     }
 }
+
+if (!function_exists('audit_format_field_value')) {
+    function audit_format_field_value($value): string
+    {
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        if (is_array($value)) {
+            $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            return $json === false ? '-' : $json;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        return (string) $value;
+    }
+}
+
+if (!function_exists('audit_diff_fields')) {
+    /**
+     * Compares two section snapshots field-by-field and returns only the
+     * fields whose value actually changed between them.
+     */
+    function audit_diff_fields($previous, $current): array
+    {
+        $previous = audit_normalize_body($previous) ?? [];
+        $current  = audit_normalize_body($current) ?? [];
+
+        $previous = audit_redact_sensitive_keys($previous);
+        $current  = audit_redact_sensitive_keys($current);
+
+        $keys = array_unique(array_merge(array_keys($previous), array_keys($current)));
+
+        $diffs = [];
+
+        foreach ($keys as $key) {
+            $oldValue = $previous[$key] ?? null;
+            $newValue = $current[$key] ?? null;
+
+            if (json_encode($oldValue) === json_encode($newValue)) {
+                continue;
+            }
+
+            $diffs[] = [
+                'input'    => $key,
+                'previous' => audit_format_field_value($oldValue),
+                'current'  => audit_format_field_value($newValue),
+            ];
+        }
+
+        return $diffs;
+    }
+}

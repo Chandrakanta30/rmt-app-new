@@ -10,104 +10,371 @@ $canViewAuditLog = has_permission('view_audit_log');
 ?>
 
 <?= $this->section('content') ?>
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-    <h2 class="form-title" style="margin-bottom: 0;">ASR No.</h2>
-    <button type="button" class="btn btn-success"
-        onclick="document.getElementById('asrCreateModal').style.display='flex'">+ Create New ASR No</button>
+<style>
+    .asr-page {
+        background: linear-gradient(180deg, #eef6f2 0%, #eef3f8 45%, #f6f8fb 100%);
+        border-radius: 20px;
+        padding: 1.75rem;
+        border: 1px solid #e2ece7;
+    }
+
+    .asr-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1.75rem;
+        flex-wrap: wrap;
+        background: #ffffff;
+        border: 1px solid #e6edf3;
+        border-radius: 14px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+    }
+
+    .asr-header .eyebrow {
+        display: block;
+        margin-bottom: 0.35rem;
+    }
+
+    .asr-header h2 {
+        margin: 0;
+        color: #12263a;
+        font-size: 1.6rem;
+    }
+
+    .asr-header p {
+        color: #607184;
+        margin-top: 0.4rem;
+        font-size: 0.88rem;
+    }
+
+    .btn-create {
+        background: linear-gradient(135deg, #289672, #1e6f5c);
+        color: white;
+        box-shadow: 0 10px 24px rgba(40,150,114,0.28);
+        border: none;
+    }
+
+    .btn-create:hover {
+        background: linear-gradient(135deg, #23875f, #185a4b);
+        box-shadow: 0 14px 28px rgba(40,150,114,0.35);
+        transform: translateY(-1px);
+    }
+
+    .asr-alert {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .asr-table-card {
+        padding: 0;
+        overflow: hidden;
+        border-radius: 16px;
+    }
+
+    .asr-table-scroll {
+        overflow-x: auto;
+    }
+
+    .asr-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.88rem;
+    }
+
+    .asr-table thead tr {
+        background: #f6f9fc;
+    }
+
+    .asr-table th {
+        padding: 0.9rem 1.1rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #5a6e7c;
+        border-bottom: 1px solid #eef2f6;
+        white-space: nowrap;
+    }
+
+    .asr-table td {
+        padding: 0.9rem 1.1rem;
+        vertical-align: middle;
+    }
+
+    .asr-table tbody tr {
+        border-bottom: 1px solid #eef2f6;
+        transition: background 0.15s;
+    }
+
+    .asr-table tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .asr-table tbody tr:hover {
+        background: #fafcfe;
+    }
+
+    .asr-id {
+        color: #94a3b8;
+        font-weight: 600;
+        font-size: 0.82rem;
+    }
+
+    .asr-no-pill {
+        display: inline-flex;
+        align-items: center;
+        background: #eef5f2;
+        color: #1e6f5c;
+        font-weight: 700;
+        padding: 0.32rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+    }
+
+    .asr-form-name {
+        color: #28394b;
+        font-weight: 500;
+    }
+
+    .asr-meta {
+        color: #607184;
+        font-size: 0.82rem;
+    }
+
+    .asr-timestamp {
+        color: #8a99a8;
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+
+    .asr-empty {
+        padding: 3rem 2rem;
+        text-align: center;
+        color: #8a99a8;
+    }
+
+    .asr-empty .empty-icon {
+        font-size: 1.8rem;
+        display: block;
+        margin-bottom: 0.5rem;
+        opacity: 0.6;
+    }
+
+    .icon-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        margin-right: 6px;
+        border: 1px solid #e2e8f0;
+        border-radius: 9px;
+        background: #fbfdff;
+        color: #34495e;
+        font-size: 0.95rem;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .icon-action:last-child {
+        margin-right: 0;
+    }
+
+    .icon-action:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(15,23,42,0.1);
+    }
+
+    .icon-action.icon-view {
+        color: #1f6fb2;
+        border-color: rgba(31,111,178,0.25);
+        background: rgba(31,111,178,0.08);
+    }
+
+    .icon-action.icon-open {
+        color: #153e5c;
+        border-color: rgba(21,62,92,0.25);
+        background: rgba(21,62,92,0.08);
+    }
+
+    .icon-action.icon-edit {
+        color: #b8860b;
+        border-color: rgba(184,134,11,0.25);
+        background: rgba(184,134,11,0.08);
+    }
+
+    .icon-action.icon-delete {
+        color: #c0392b;
+        border-color: rgba(192,57,43,0.25);
+        background: rgba(192,57,43,0.08);
+    }
+
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15,23,42,0.55);
+        backdrop-filter: blur(2px);
+        align-items: center;
+        justify-content: center;
+        z-index: 1100;
+    }
+
+    .modal-card {
+        width: 100%;
+        max-width: 480px;
+        margin: 0 1rem;
+        border-radius: 16px;
+        box-shadow: 0 24px 60px rgba(15,23,42,0.25);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        color: #12263a;
+    }
+
+    .modal-close {
+        border: none;
+        background: #f1f5f9;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        font-size: 1.1rem;
+        cursor: pointer;
+        color: #7f8c8d;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-close:hover {
+        background: #e2e8f0;
+    }
+</style>
+
+<div class="asr-page">
+<div class="asr-header">
+    <div>
+        <span class="eyebrow">ASR Management</span>
+        <h2>ASR No.</h2>
+        <p>Create, track, and manage ASR number mappings to approved forms.</p>
+    </div>
+    <button type="button" class="btn btn-create"
+        onclick="document.getElementById('asrCreateModal').style.display='flex'">&#43; Create New ASR No</button>
 </div>
 
 <?php if (session()->getFlashdata('success')): ?>
-    <div
-        style="background: rgba(40,150,114,0.15); border: 1px solid rgba(40,150,114,0.3); color: #1e6f5c; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem;">
-        <?= session()->getFlashdata('success') ?>
+    <div class="alert alert-success asr-alert">
+        <span>&#9989;</span>
+        <span><?= session()->getFlashdata('success') ?></span>
     </div>
 <?php endif; ?>
 
 <?php if (session()->getFlashdata('action_error')): ?>
-    <div
-        style="background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #c0392b; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem;">
-        <?= session()->getFlashdata('action_error') ?>
+    <div class="alert alert-error asr-alert">
+        <span>&#9888;&#65039;</span>
+        <span><?= session()->getFlashdata('action_error') ?></span>
     </div>
 <?php endif; ?>
 
-<div class="protocol-card" style="padding: 0; overflow-x: auto;">
-    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-        <thead>
-            <tr style="background: #f8fafc; border-bottom: 2px solid #eef2f6;">
-                <th style="padding: 1rem;">ID</th>
-                <th style="padding: 1rem;">ASR No.</th>
-                <th style="padding: 1rem;">Form Name</th>
-                <th style="padding: 1rem;">Created By</th>
-                <th style="padding: 1rem;">Created At</th>
-                <th style="padding: 1rem;">Updated At</th>
-                <?php if ($canViewAuditLog): ?>
-                    <th style="padding: 1rem;">Audit Log</th>
-                <?php endif; ?>
-                <?php if ($canModify): ?>
-                    <th style="padding: 1rem;">Actions</th>
-                <?php endif; ?>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($asrList)): ?>
+<div class="protocol-card asr-table-card">
+    <div class="asr-table-scroll">
+        <table class="asr-table">
+            <thead>
                 <tr>
-                    <td colspan="<?= 6 + ($canViewAuditLog ? 1 : 0) + ($canModify ? 1 : 0) ?>" style="padding: 2rem; text-align: center; color: #7f8c8d;">No ASR numbers found.</td>
+                    <th>Sl No.</th>
+                    <th>ASR No.</th>
+                    <th>Form Name</th>
+                    <th>Created By</th>
+                    <th>Created At</th>
+                    <th>Updated At</th>
+                    <?php if ($canViewAuditLog): ?>
+                        <th>Audit Log</th>
+                    <?php endif; ?>
+                    <?php if ($canModify): ?>
+                        <th>Actions</th>
+                    <?php endif; ?>
                 </tr>
-            <?php else: ?>
-                <?php foreach ($asrList as $asr): ?>
-                    <tr style="border-bottom: 1px solid #eef2f6; transition: background 0.2s;"
-                        onmouseover="this.style.background='#fcfdfe'" onmouseout="this.style.background='transparent'">
-                        <td style="padding: 1rem;"><?= esc($asr['id']) ?></td>
-                        <td style="padding: 1rem; font-weight: 500;"><?= esc($asr['asr_no']) ?></td>
-                        <td style="padding: 1rem;"><?= esc($asr['form_name'] ?? '-') ?></td>
-                        <td style="padding: 1rem;"><?= esc($asr['created_by_name'] ?? '-') ?></td>
-                        <td style="padding: 1rem; color: #7f8c8d;">
-                            <?= $asr['created_at'] ? date('j M Y g.i a', strtotime($asr['created_at'])) : '-' ?></td>
-                        <td style="padding: 1rem; color: #7f8c8d;">
-                            <?= $asr['updated_at'] ? date('j M Y g.i a', strtotime($asr['updated_at'])) : '-' ?></td>
-                        <?php if ($canViewAuditLog): ?>
-                            <td style="padding: 1rem;">
-                                <?php if (has_permission('view_audit_log')): ?>
-                                    <a class="btn btn-ghost"
-                                        href="<?= base_url('asr-mapping/audit-log/' . $asr['id']) ?>">View</a>
-                                <?php else: ?>
-                                    -
-                                <?php endif; ?>
-                            </td>
-                        <?php endif; ?>
-                        <?php if ($canModify): ?>
-                            <td style="padding: 1rem;">
-                                <a class="btn btn-primary"
-                                    href="<?= base_url('form/' . $asr['form_key'] . '?asr=' . $asr['id']) ?>">Open form</a>
-                                <?php if (has_permission('update_asrno')): ?>
-                                    <button type="button" class="btn btn-ghost"
-                                        onclick="openAsrEditModal(<?= (int) $asr['id'] ?>, '<?= esc($asr['asr_no'], 'js') ?>', <?= (int) $asr['form_id'] ?>)">Edit</button>
-                                <?php endif; ?>
-                                <?php if (has_permission('delete_asrno')): ?>
-                                    <button type="button" class="btn btn-ghost" style="color:#c0392b;"
-                                        onclick="openAsrDeleteModal(<?= (int) $asr['id'] ?>, '<?= esc($asr['asr_no'], 'js') ?>')">Delete</button>
-                                <?php endif; ?>
-                            </td>
-                        <?php endif; ?>
+            </thead>
+            <tbody>
+                <?php if (empty($asrList)): ?>
+                    <tr>
+                        <td colspan="<?= 6 + ($canViewAuditLog ? 1 : 0) + ($canModify ? 1 : 0) ?>">
+                            <div class="asr-empty">
+                                <span class="empty-icon">&#128203;</span>
+                                No ASR numbers found.
+                            </div>
+                        </td>
                     </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
+                <?php else: ?>
+                    <?php $asrSlNo = 1; ?>
+                    <?php foreach ($asrList as $asr): ?>
+                        <tr>
+                            <td class="asr-id"><?= $asrSlNo++ ?></td>
+                            <td><span class="asr-no-pill"><?= esc($asr['asr_no']) ?></span></td>
+                            <td class="asr-form-name"><?= esc($asr['form_name'] ?? '-') ?></td>
+                            <td class="asr-meta"><?= esc($asr['created_by_name'] ?? '-') ?></td>
+                            <td class="asr-timestamp">
+                                <?= $asr['created_at'] ? date('j M Y g.i a', strtotime($asr['created_at'])) : '-' ?>
+                            </td>
+                            <td class="asr-timestamp">
+                                <?= $asr['updated_at'] ? date('j M Y g.i a', strtotime($asr['updated_at'])) : '-' ?>
+                            </td>
+                            <?php if ($canViewAuditLog): ?>
+                                <td>
+                                    <?php if (has_permission('view_audit_log')): ?>
+                                        <a class="icon-action icon-view" title="View audit log" aria-label="View audit log"
+                                            href="<?= base_url('asr-mapping/audit-log/' . $asr['id']) ?>">&#128337;</a>
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
+                            <?php endif; ?>
+                            <?php if ($canModify): ?>
+                                <td style="white-space: nowrap;">
+                                    <a class="icon-action icon-open" title="Open form" aria-label="Open form"
+                                        href="<?= base_url('form/' . $asr['form_key'] . '?asr=' . $asr['id']) ?>">&#128196;</a>
+                                    <?php if (has_permission('update_asrno')): ?>
+                                        <button type="button" class="icon-action icon-edit" title="Edit" aria-label="Edit"
+                                            onclick="openAsrEditModal(<?= (int) $asr['id'] ?>, '<?= esc($asr['asr_no'], 'js') ?>', <?= (int) $asr['form_id'] ?>)">&#9998;</button>
+                                    <?php endif; ?>
+                                    <?php if (has_permission('delete_asrno')): ?>
+                                        <button type="button" class="icon-action icon-delete" title="Delete" aria-label="Delete"
+                                            onclick="openAsrDeleteModal(<?= (int) $asr['id'] ?>, '<?= esc($asr['asr_no'], 'js') ?>')">&#128465;</button>
+                                    <?php endif; ?>
+                                </td>
+                            <?php endif; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
 </div>
 
-<div id="asrCreateModal"
-    style="display: <?= $hasModalError ? 'flex' : 'none' ?>; position: fixed; inset: 0; background: rgba(15,23,42,0.5); align-items: center; justify-content: center; z-index: 1100;">
-    <div class="protocol-card" style="width: 100%; max-width: 480px; margin: 0 1rem;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 1.25rem;">
-            <h3 style="margin:0;">Create ASR No.</h3>
-            <button type="button" onclick="document.getElementById('asrCreateModal').style.display='none'"
-                style="border:none; background:none; font-size:1.25rem; cursor:pointer; color:#7f8c8d;">&times;</button>
+<div id="asrCreateModal" class="modal-overlay" style="display: <?= $hasModalError ? 'flex' : 'none' ?>;">
+    <div class="protocol-card modal-card">
+        <div class="modal-header">
+            <h3>Create ASR No.</h3>
+            <button type="button" class="modal-close"
+                onclick="document.getElementById('asrCreateModal').style.display='none'">&times;</button>
         </div>
 
         <?php if (session()->getFlashdata('errors')): ?>
-            <div
-                style="background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #c0392b; padding: 1rem; border-radius: 8px; margin-bottom: 1.25rem; font-size: 0.9rem;">
+            <div class="alert alert-error" style="margin-bottom: 1.25rem;">
                 <ul style="margin: 0; padding-left: 1.25rem;">
                     <?php foreach (session()->getFlashdata('errors') as $error): ?>
                         <li><?= esc($error) ?></li>
@@ -117,8 +384,7 @@ $canViewAuditLog = has_permission('view_audit_log');
         <?php endif; ?>
 
         <?php if (session()->getFlashdata('error')): ?>
-            <div
-                style="background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #c0392b; padding: 1rem; border-radius: 8px; margin-bottom: 1.25rem; font-size: 0.9rem;">
+            <div class="alert alert-error" style="margin-bottom: 1.25rem;">
                 <?= session()->getFlashdata('error') ?>
             </div>
         <?php endif; ?>
@@ -155,13 +421,11 @@ $canViewAuditLog = has_permission('view_audit_log');
 </div>
 
 <?php if (has_permission('delete_asrno')): ?>
-    <div id="asrDeleteModal"
-        style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); align-items: center; justify-content: center; z-index: 1100;">
-        <div class="protocol-card" style="width: 100%; max-width: 480px; margin: 0 1rem;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 1.25rem;">
-                <h3 style="margin:0;">Delete ASR No.</h3>
-                <button type="button" onclick="closeAsrDeleteModal()"
-                    style="border:none; background:none; font-size:1.25rem; cursor:pointer; color:#7f8c8d;">&times;</button>
+    <div id="asrDeleteModal" class="modal-overlay" style="display: none;">
+        <div class="protocol-card modal-card">
+            <div class="modal-header">
+                <h3>Delete ASR No.</h3>
+                <button type="button" class="modal-close" onclick="closeAsrDeleteModal()">&times;</button>
             </div>
 
             <p style="margin-top:0;">Deleting <strong id="asrDeleteNoLabel"></strong>. This can't be undone from this
@@ -187,13 +451,11 @@ $canViewAuditLog = has_permission('view_audit_log');
 <?php endif; ?>
 
 <?php if (has_permission('update_asrno')): ?>
-    <div id="asrEditModal"
-        style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); align-items: center; justify-content: center; z-index: 1100;">
-        <div class="protocol-card" style="width: 100%; max-width: 480px; margin: 0 1rem;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 1.25rem;">
-                <h3 style="margin:0;">Edit ASR No.</h3>
-                <button type="button" onclick="closeAsrEditModal()"
-                    style="border:none; background:none; font-size:1.25rem; cursor:pointer; color:#7f8c8d;">&times;</button>
+    <div id="asrEditModal" class="modal-overlay" style="display: none;">
+        <div class="protocol-card modal-card">
+            <div class="modal-header">
+                <h3>Edit ASR No.</h3>
+                <button type="button" class="modal-close" onclick="closeAsrEditModal()">&times;</button>
             </div>
 
             <form id="asrEditForm" method="POST">
@@ -230,10 +492,9 @@ $canViewAuditLog = has_permission('view_audit_log');
 <?php endif; ?>
 
 <?php if ($actionSuccess): ?>
-    <div id="asrActionSuccessModal"
-        style="display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.5); align-items: center; justify-content: center; z-index: 1100;">
-        <div class="protocol-card"
-            style="width: 100%; max-width: 380px; margin: 0 1rem; text-align: center; padding: 2rem;">
+    <div id="asrActionSuccessModal" class="modal-overlay" style="display: flex;">
+        <div class="protocol-card modal-card"
+            style="max-width: 380px; text-align: center; padding: 2rem;">
             <div
                 style="width:56px; height:56px; border-radius:50%; background:rgba(40,150,114,0.15); color:#1e6f5c; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem; font-size:1.5rem;">
                 &#10003;</div>

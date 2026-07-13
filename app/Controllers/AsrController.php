@@ -193,21 +193,43 @@ class AsrController extends BaseController
 
             $previousSnapshot = $previousSnapshots[$sectionId] ?? null;
 
-            $changes[] = [
-                'form'       => $formName,
-                'section'    => $sectionName,
-                'previous'   => audit_pretty_body($previousSnapshot),
-                'current'    => audit_pretty_body($currentSnapshot),
-                'updated_by' => $log['updated_by_name'] ?? 'Unknown',
-                'date'       => $log['created_at'],
-            ];
+            foreach (audit_diff_fields($previousSnapshot, $currentSnapshot) as $fieldChange) {
+                $changes[] = [
+                    'form'       => $formName,
+                    'section'    => $sectionName,
+                    'input'      => $fieldChange['input'],
+                    'previous'   => $fieldChange['previous'],
+                    'current'    => $fieldChange['current'],
+                    'updated_by' => $log['updated_by_name'] ?? 'Unknown',
+                    'date'       => $log['created_at'],
+                ];
+            }
 
             $previousSnapshots[$sectionId] = $currentSnapshot;
         }
 
+        $perPage = 10;
+        $totalChanges = count($changes);
+        $totalPages = max(1, (int) ceil($totalChanges / $perPage));
+
+        $page = (int) ($this->request->getGet('page') ?? 1);
+        if ($page < 1) {
+            $page = 1;
+        } elseif ($page > $totalPages) {
+            $page = $totalPages;
+        }
+
+        $pagedChanges = array_slice($changes, ($page - 1) * $perPage, $perPage);
+
         return view('asr/audit_log', [
             'asr'        => $asr,
-            'changes'    => $changes,
+            'changes'    => $pagedChanges,
+            'pagination' => [
+                'page'       => $page,
+                'totalPages' => $totalPages,
+                'total'      => $totalChanges,
+                'perPage'    => $perPage,
+            ],
             'breadcrumb' => 'ASR Audit Log',
         ]);
     }
