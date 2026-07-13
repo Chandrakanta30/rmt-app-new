@@ -6,3 +6,5 @@ vendor/
 .DS_Store
 Thumbs.db
 debugbar/
+app/Config/Database.php
+app/Config/Database.php

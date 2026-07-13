@@ -30,17 +30,93 @@ class Form extends Controller
         ]);
     }
 
-    public function index($formKey = 'accuracyform')
-    {
+    // public function index($formKey = 'accuracyform')
+    // {
 
-        // return "coming";
-        $formModel = new FormModel();
-        $sectionModel = new SectionModel();
+    //     // return "coming";
+    //     $formModel = new FormModel();
+    //     $sectionModel = new SectionModel();
 
-        // 1. Get form
-        $form = $formModel->where('form_key', $formKey)->first();
+    //     // 1. Get form
+    //     $form = $formModel->where('form_key', $formKey)->first();
 
 
+
+    //     if (!$form) {
+    //         throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+    //     }
+
+
+    //     // 2. Check composite
+    //     $db = \Config\Database::connect();
+
+    //     // return $db;
+
+    //     $childIds = $db->table('form_compositions')
+    //         ->select('child_form_id')
+    //         ->where('parent_form_id', $form['id'])
+    //         ->orderBy('order')
+    //         ->get()
+    //         ->getResultArray();
+
+    //     if (empty($childIds)) {
+    //         $formIds = [$form['id']];
+    //     } else {
+    //         $formIds = array_column($childIds, 'child_form_id');
+    //     }
+
+    //     $dataValues = [];
+
+    //     $sections = $sectionModel->getSectionsWithFields($formIds);
+
+    //     foreach ($sections as $section) {
+    //         // The submit path ALWAYS records into form_values (keyed by section_id) —
+    //         // the forms table carries no `table` column, so every save lands there.
+    //         // Read form_values first so saved data reflects back, regardless of
+    //         // whether the section carries a dynamic `table` name (classic builder
+    //         // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
+    //         $row = $db->table('form_values')
+    //             ->where('section_id', $section['id'])
+    //             ->orderBy('id', 'DESC')
+    //             ->get()
+    //             ->getRowArray();
+
+    //         if ($row) {
+    //             // values is a JSON array of row objects for repeatable tables,
+    //             // or a single object for grid/inline sections.
+    //             $dataValues[$section['id']] = json_decode($row['values'], true);
+    //             continue;
+    //         }
+
+    //         // Fallback: a section bound to a real table with no form_values record
+    //         // (legacy data written straight to its own table) reads its latest row.
+    //         $table = !empty($section['table']) ? $section['table'] : null;
+    //         if ($table && in_array($table, $db->listTables(), true)) {
+    //             $tableRow = $db->table($table)
+    //                 ->orderBy('id', 'DESC')
+    //                 ->get()
+    //                 ->getRowArray();
+
+    //             if ($tableRow) {
+    //                 $dataValues[$section['id']] = $tableRow;
+    //             }
+    //         }
+    //     }
+
+    //     return view('form_view', [
+    //         'form' => $form,
+    //         'sections' => $sections,
+    //         'values' => $dataValues,
+    //         'breadcrumb' => $form['name'] ?? 'Form',
+    //     ]);
+    // }
+public function index($formKey = 'accuracyform')
+{
+    $formModel = new FormModel();
+    $sectionModel = new SectionModel();
+
+    // 1. Get form
+    $form = $formModel->where('form_key', $formKey)->first();
 
         if (!$form) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -49,33 +125,82 @@ class Form extends Controller
 
         $viewOnly = (service('request')->getGet('mode') === 'view');
 
-        // 2. Check composite
-        $db = \Config\Database::connect();
+    // 2. Check composite
+    $db = \Config\Database::connect();
 
-        // return $db;
+    $childIds = $db->table('form_compositions')
+        ->select('child_form_id')
+        ->where('parent_form_id', $form['id'])
+        ->orderBy('order')
+        ->get()
+        ->getResultArray();
 
-        $childIds = $db->table('form_compositions')
-            ->select('child_form_id')
-            ->where('parent_form_id', $form['id'])
-            ->orderBy('order')
+    if (empty($childIds)) {
+        $formIds = [$form['id']];
+    } else {
+        $formIds = array_column($childIds, 'child_form_id');
+    }
+
+    $dataValues = [];
+        // View-only mode (?mode=view): render the form structure with empty,
+        // non-editable fields — the user can see the form but cannot type or
+        // load any saved data.
+        $request = service('request');
+        $viewOnly = ($request->getGet('mode') === 'view');
+
+    $sections = $sectionModel->getSectionsWithFields($formIds);
+
+    foreach ($sections as $section) {
+        // Read form_values first so saved data reflects back
+        $row = $db->table('form_values')
+            ->where('section_id', $section['id'])
+            ->orderBy('id', 'DESC')
             ->get()
-            ->getResultArray();
+            ->getRowArray();
 
-        if (empty($childIds)) {
-            $formIds = [$form['id']];
-        } else {
-            $formIds = array_column($childIds, 'child_form_id');
+        if ($row) {
+            $dataValues[$section['id']] = json_decode($row['values'], true);
+            continue;
         }
 
+        // REMOVED: Fallback to section table - we only use form_values now
+        // All data is stored in form_values table
         $dataValues = [];
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
+        // Check if form is approved for edit access
+        $canEdit = ($form['status'] === 'Approved');
+        $asrId = (int) ($request->getGet('asr_id') ?? 0);
+
+        if ($asrId > 0) {
+            $asrMapping = $db->table('form_asr_mapping')
+                ->select('id')
+                ->where('id', $asrId)
+                ->where('form_id', $form['id'])
+                ->get()
+                ->getRow();
+
+            if (!$asrMapping) {
+                throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+            }
+        }
+
         // In view-only mode, skip data loading entirely so every field renders empty.
         foreach (($viewOnly ? [] : $sections) as $section) {
             // The submit path ALWAYS records into form_values (keyed by section_id) —
-            $row = $db->table('form_values')
-                ->where('section_id', $section['id'])
+            // the forms table carries no `table` column, so every save lands there.
+            // Read form_values first so saved data reflects back, regardless of
+            // whether the section carries a dynamic `table` name (classic builder
+            // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
+            $valuesQuery = $db->table('form_values')
+                ->where('section_id', $section['id']);
+
+            if ($asrId > 0) {
+                $valuesQuery->where('asr_id', $asrId);
+            }
+
+            $row = $valuesQuery
                 ->orderBy('id', 'DESC')
                 ->get()
                 ->getRowArray();
@@ -88,7 +213,7 @@ class Form extends Controller
             }
 
             $table = !empty($section['table']) ? $section['table'] : null;
-            if ($table && in_array($table, $db->listTables(), true)) {
+            if ($asrId <= 0 && $table && in_array($table, $db->listTables(), true)) {
                 $tableRow = $db->table($table)
                     ->orderBy('id', 'DESC')
                     ->get()
@@ -104,11 +229,20 @@ class Form extends Controller
             'form' => $form,
             'sections' => $sections,
             'values' => $dataValues,
-            'readonly' => $viewOnly,
+            'readonly' => $viewOnly || !$canEdit,
+            'canEdit' => $canEdit,
+            'asrId' => $asrId,
             'breadcrumb' => $form['name'] ?? 'Form',
         ]);
     }
 
+    return view('form_view', [
+        'form' => $form,
+        'sections' => $sections,
+        'values' => $dataValues,
+        'breadcrumb' => $form['name'] ?? 'Form',
+    ]);
+}
     public function submit()
     {
         $request = service('request');
@@ -117,6 +251,7 @@ class Form extends Controller
 
         $sections = $request->getPost('sections');
         $formIds  = $request->getPost('form_id');
+        $asrIds   = $request->getPost('asr_id');
 
         $sectionIds = is_array($sections) ? array_keys($sections) : [];
         if (is_array($formIds)) {
@@ -232,10 +367,42 @@ class Form extends Controller
 
                 // Replace this section's previous record so the saved set always
                 // reflects the full current table (rows accumulate, no duplicates).
-                $db->table('form_values')->where('section_id', $sectionId)->delete();
+                $currentFormId = $form_id[$sectionId] ?? null;
+                $currentAsrId = is_array($asrIds) ? (int) ($asrIds[$sectionId] ?? 0) : 0;
+
+                if ($currentAsrId <= 0 && $currentFormId) {
+                    $asrMapping = $db->table('form_asr_mapping')
+                        ->select('id')
+                        ->where('form_id', $currentFormId)
+                        ->orderBy('id', 'DESC')
+                        ->get()
+                        ->getRow();
+
+                    $currentAsrId = $asrMapping ? (int) $asrMapping->id : 0;
+                }
+
+                if ($currentAsrId > 0 && $currentFormId) {
+                    $asrMapping = $db->table('form_asr_mapping')
+                        ->select('id')
+                        ->where('id', $currentAsrId)
+                        ->where('form_id', $currentFormId)
+                        ->get()
+                        ->getRow();
+
+                    if (!$asrMapping) {
+                        return redirect()->back()->withInput()->with('error', 'Invalid ASR mapping for this form.');
+                    }
+                }
+
+                $deleteQuery = $db->table('form_values')->where('section_id', $sectionId);
+                if ($currentAsrId > 0) {
+                    $deleteQuery->where('asr_id', $currentAsrId);
+                }
+                $deleteQuery->delete();
 
                 $db->table('form_values')->insert([
-                    'form_id'    => $form_id[$sectionId] ?? null,
+                    'asr_id'     => $currentAsrId > 0 ? $currentAsrId : null,
+                    'form_id'    => $currentFormId,
                     'section_id' => $sectionId,
                     'values'     => json_encode($payload),
                 ]);
@@ -288,9 +455,53 @@ class Form extends Controller
             }
         }
 
-
         return redirect()->back()->with('success', 'Saved successfully');
         // return redirect('http://localhost:8888/code4/public/index.php/form')->with('success', 'Saved successfully');
         // return redirect()->back()->with('success', 'Saved successfully');
     }
+  public function updateStatus($formId)
+{
+    helper('auth');
+    $request = service('request');
+    $db = \Config\Database::connect();
+    
+    $reviewed = $request->getPost('reviewed') ? 1 : 0;
+    $approved = $request->getPost('approved') ? 1 : 0;
+
+    $form = $db->table('forms')->select('status')->where('id', $formId)->get()->getRowArray();
+    if (! $form) {
+        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+    }
+    $currentStatus = $form['status'] ?? 'Created';
+
+    // Only authorized roles may toggle these values.
+    if (!has_role('Reviewer') && !has_role('Admin')) {
+        $reviewed = 0;
+    }
+    if (!has_role('Approver') && !has_role('Admin')) {
+        $approved = 0;
+    }
+
+    // Approval only allowed after review.
+    if ($approved === 1 && !in_array($currentStatus, ['Reviewed', 'Approved'], true)) {
+        return redirect()->back()->with('error', 'Form must be reviewed before it can be approved.');
+    }
+    
+    // Determine status based on checkboxes
+    if ($approved == 1) {
+        $status = 'Approved';
+    } elseif ($reviewed == 1) {
+        $status = 'Reviewed';
+    } else {
+        $status = 'Created';
+    }
+    
+    $db->table('forms')
+        ->where('id', $formId)
+        ->update([
+            'status' => $status
+        ]);
+    
+    return redirect()->back()->with('success', 'Status updated successfully');
+}
 }

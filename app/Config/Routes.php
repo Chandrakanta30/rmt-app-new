@@ -6,6 +6,7 @@ use App\Controllers\AuthController;
 use App\Controllers\UserController;
 use App\Controllers\RoleController;
 use App\Controllers\PermissionController;
+use App\Controllers\AsrController;
 
 /**
  * @var RouteCollection $routes
@@ -28,7 +29,16 @@ $routes->group('', ['filter' => 'permission:view_forms'], function($routes) {
     $routes->get('form/(:any)', 'Form::index/$1');
 });
 
+$routes->post('form/status', 'Form::updateStatus', ['filter' => 'permission:view_forms']);
 $routes->post('form/submit', 'Form::submit', ['filter' => 'permission:submit_data']);
+
+// ASR No. routes
+$routes->group('asr-mapping', ['filter' => 'permission:create_asrno'], function($routes) {
+    $routes->get('/', [AsrController::class, 'index']);
+    $routes->post('store', [AsrController::class, 'store']);
+});
+
+$routes->post('asr-mapping/delete/(:num)', [AsrController::class, 'delete/$1'], ['filter' => 'permission:delete_asrno']);
 
 // Admin management routes (protected by specific permission checks)
 $routes->group('users', ['filter' => 'permission:manage_users'], function($routes) {
@@ -54,3 +64,4 @@ $routes->group('permissions', ['filter' => 'permission:manage_permissions'], fun
     $routes->post('store', [PermissionController::class, 'store']);
     $routes->get('delete/(:num)', [PermissionController::class, 'delete/$1']);
 });
+$routes->post('form/update_status/(:num)', 'Form::updateStatus/$1');
