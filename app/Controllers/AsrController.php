@@ -67,10 +67,72 @@ class AsrController extends BaseController
             'create',
             'asr_no',
             $asrId,
-            "Created ASR No. '{$asrNo}' for form '{$form['name']}'."
+            "Created ASR No. '{$asrNo}' for form '{$form['name']}'.",
+            ['asr_no' => $asrNo, 'form_id' => $formId],
+            $asrModel->find($asrId)
         );
 
         return redirect()->to(base_url('asr-mapping'))->with('success', 'ASR No. created successfully.');
+    }
+
+    public function update($id)
+    {
+        $rules = [
+            'asr_no'        => 'required|max_length[50]',
+            'form_id'       => 'required|is_natural_no_zero',
+            'update_remark' => 'required|max_length[500]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->to(base_url('asr-mapping'))->with('action_error', 'ASR No., Form and a remark are all required to update.');
+        }
+
+        $asrModel = new AsrModel();
+        $asr = $asrModel->where('deleted_at', null)->find($id);
+
+        if (!$asr) {
+            return redirect()->to(base_url('asr-mapping'))->with('action_error', 'ASR No. not found.');
+        }
+
+        $asrNo  = trim((string) $this->request->getPost('asr_no'));
+        $formId = (int) $this->request->getPost('form_id');
+        $remark = trim((string) $this->request->getPost('update_remark'));
+
+        $formModel = new FormModel();
+        $form = $formModel->where('status', 'Approved')->find($formId);
+
+        if (!$form) {
+            return redirect()->to(base_url('asr-mapping'))->with('action_error', 'Selected form is not an approved form.');
+        }
+
+        $duplicate = $asrModel->where('asr_no', $asrNo)->where('id !=', $id)->first();
+
+        if ($duplicate) {
+            return redirect()->to(base_url('asr-mapping'))->with('action_error', 'This ASR number has already been used. Please enter a new, unique ASR number.');
+        }
+
+        try {
+            $asrModel->update($id, [
+                'asr_no'  => $asrNo,
+                'form_id' => $formId,
+            ]);
+        } catch (DatabaseException $e) {
+            return redirect()->to(base_url('asr-mapping'))->with('action_error', 'This ASR number has already been used. Please enter a new, unique ASR number.');
+        }
+
+        $updatedRecord = $asrModel->find($id);
+        unset($updatedRecord['deleted_at']);
+
+        (new AuditLogModel())->record(
+            'update',
+            'asr_no',
+            (int) $id,
+            $remark,
+            ['asr_no' => $asrNo, 'form_id' => $formId, 'update_remark' => $remark],
+            $updatedRecord
+        );
+
+        return redirect()->to(base_url('asr-mapping'))->with('action_success', 'ASR No. updated successfully.');
     }
 
     public function delete($id)
@@ -80,28 +142,29 @@ class AsrController extends BaseController
         ];
 
         if (!$this->validate($rules)) {
-            return redirect()->to(base_url('asr-mapping'))->with('delete_error', 'A remark is required to delete an ASR No.');
+            return redirect()->to(base_url('asr-mapping'))->with('action_error', 'A remark is required to delete an ASR No.');
         }
 
         $asrModel = new AsrModel();
         $asr = $asrModel->where('deleted_at', null)->find($id);
 
         if (!$asr) {
-            return redirect()->to(base_url('asr-mapping'))->with('delete_error', 'ASR No. not found.');
+            return redirect()->to(base_url('asr-mapping'))->with('action_error', 'ASR No. not found.');
         }
 
         $remark = trim((string) $this->request->getPost('delete_remark'));
-        $userId = (int) session()->get('user_id');
 
-        $asrModel->softDelete((int) $id, $userId);
+        $asrModel->softDelete((int) $id);
 
         (new AuditLogModel())->record(
             'delete',
             'asr_no',
             (int) $id,
-            $remark
+            $remark,
+            ['delete_remark' => $remark],
+            $asrModel->find($id)
         );
 
-        return redirect()->to(base_url('asr-mapping'))->with('delete_success', 'ASR No. deleted successfully.');
+        return redirect()->to(base_url('asr-mapping'))->with('action_success', 'ASR No. deleted successfully.');
     }
 }
