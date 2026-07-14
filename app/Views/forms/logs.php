@@ -6,8 +6,6 @@
 <?php
 helper('workflow');
 
-$status = $form['status'] ?? 'created';
-
 // "13 Jul 2026 at 2:41 pm" reads better than a raw DATETIME in a history list.
 $human = static function (?string $ts): string {
     if (!$ts) {
@@ -52,35 +50,21 @@ $human = static function (?string $ts): string {
         background: #f7fafc;
     }
 
-    .meta-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 1.1rem;
-        padding: 1.2rem;
-        border-bottom: 1px solid #eef3f7;
-        background: #fcfdfe;
-    }
-    .meta-grid dt { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #7a8a99; font-weight: 700; margin-bottom: 0.35rem; }
-    .meta-grid dd { margin: 0; color: #28394b; font-size: 0.92rem; }
-
     /* seven columns don't fit a narrow window — let the table scroll, not the page */
-    .table-scroll { overflow-x: auto; }
-    .history-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    .table-scroll { max-height: 600px; overflow: auto; }
+    .history-table { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 0.9rem; }
     .history-table thead th {
         text-align: left;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #46596b;
-        font-weight: 700;
-        padding: 0.75rem 1.2rem;
-        border-bottom: 1px solid #e6edf3;
+        padding: 1rem;
+        border-bottom: 2px solid #eef2f6;
+        background: #f8fafc;
+        position: sticky;
+        top: 0;
     }
     .history-table tbody td {
-        padding: 0.85rem 1.2rem;
-        border-bottom: 1px solid #eef3f7;
+        padding: 1rem;
+        border-bottom: 1px solid #eef2f6;
         color: #28394b;
-        font-size: 0.9rem;
         vertical-align: top;
     }
     .history-table tbody tr:last-child td { border-bottom: none; }
@@ -108,29 +92,6 @@ $human = static function (?string $ts): string {
     <!-- Ownership + current state, then the trail of everything that got it here -->
     <div class="history-card">
         <h2>Audit log</h2>
-
-        <dl class="meta-grid">
-            <div>
-                <dt>Current status</dt>
-                <dd><span class="status-badge status-<?= esc($status) ?>"><?= esc(workflow_status_label($status)) ?></span></dd>
-            </div>
-            <div>
-                <dt>Created by</dt>
-                <dd><?= esc($form['created_by_name'] ?: '—') ?></dd>
-            </div>
-            <div>
-                <dt>Created on</dt>
-                <dd><?= esc($human($form['created_at'] ?? null)) ?></dd>
-            </div>
-            <div>
-                <dt>Last updated by</dt>
-                <dd><?= esc($form['updated_by_name'] ?: '—') ?></dd>
-            </div>
-            <div>
-                <dt>Last updated on</dt>
-                <dd><?= esc($human($form['updated_at'] ?? null)) ?></dd>
-            </div>
-        </dl>
 
         <div class="table-scroll">
             <table class="history-table">
@@ -178,6 +139,27 @@ $human = static function (?string $ts): string {
                 </tbody>
             </table>
         </div>
+
+        <?php if ($pagination['totalPages'] > 1): ?>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-top: 1px solid #eef2f6; font-size: 0.85rem; color: #607184;">
+                <span>Page <?= $pagination['page'] ?> of <?= $pagination['totalPages'] ?> (<?= $pagination['total'] ?> entries)</span>
+                <div style="display: flex; gap: 8px;">
+                    <?php if ($pagination['page'] > 1): ?>
+                        <a class="btn btn-ghost" style="padding: 0.4rem 0.9rem; min-height: auto;"
+                            href="<?= base_url('forms/logs/' . $form['id']) ?>?page=<?= $pagination['page'] - 1 ?>">&larr; Previous</a>
+                    <?php else: ?>
+                        <span class="btn btn-ghost" style="padding: 0.4rem 0.9rem; min-height: auto; opacity: 0.5; pointer-events: none;">&larr; Previous</span>
+                    <?php endif; ?>
+
+                    <?php if ($pagination['page'] < $pagination['totalPages']): ?>
+                        <a class="btn btn-ghost" style="padding: 0.4rem 0.9rem; min-height: auto;"
+                            href="<?= base_url('forms/logs/' . $form['id']) ?>?page=<?= $pagination['page'] + 1 ?>">Next &rarr;</a>
+                    <?php else: ?>
+                        <span class="btn btn-ghost" style="padding: 0.4rem 0.9rem; min-height: auto; opacity: 0.5; pointer-events: none;">Next &rarr;</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 <?= $this->endSection() ?>

@@ -172,8 +172,10 @@ public function index($formKey = 'accuracyform')
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
-        // Check if form is approved for edit access
-        $canEdit = ($form['status'] === 'Approved');
+        // Check if form is approved for edit access.
+        // ASR-scoped entries are always editable — the form template's own
+        // approval workflow only gates direct (non-ASR) access to the form.
+        $canEdit = ($asr > 0) ? true : ($form['status'] === 'Approved');
         // $asrId = (int) ($request->getGet('asr_id') ?? 0);
         $asrId = $asr;
 
@@ -372,6 +374,9 @@ public function index($formKey = 'accuracyform')
                 // reflects the full current table (rows accumulate, no duplicates).
                 $currentFormId = $form_id[$sectionId] ?? null;
                 $currentAsrId = is_array($asrIds) ? (int) ($asrIds[$sectionId] ?? 0) : 0;
+                // Whether this save actually came from an ASR-opened page (hidden
+                // asr_id field present), as opposed to a direct form/template edit.
+                $isAsrSave = $currentAsrId > 0;
 
                 if ($currentAsrId <= 0 && $currentFormId) {
                     $asrMapping = $db->table('form_asr_mapping')
@@ -410,32 +415,50 @@ public function index($formKey = 'accuracyform')
                     'values'     => json_encode($payload),
                 ]);
 
-                // Audit log: record every form_values save.
+                // Audit log: one row per save, in whichever module matches how the
+                // save was triggered, always with the request payload and saved
+                // snapshot so either audit trail can decode and diff field-by-field.
                 $formValueId = $db->insertID();
                 $savedAt     = date('Y-m-d H:i:s');
                 $savedBy     = session()->get('user_id');
 
-                $db->table('audit_logs')->insert([
-                    'user_id'    => $savedBy,
-                    'action'     => 'save',
-                    'module'     => 'form_values',
-                    'entity_id'  => $formValueId,
-                    'remark'     => 'Saved form_values (form_id: ' . ($currentFormId ?? 'null')
-                        . ', section_id: ' . $sectionId . ')',
-                    'created_at' => $savedAt,
-                ]);
-
+                if ($isAsrSave) {
+                    // Saved via an ASR-opened form -> log under form_values only,
+                    // this is what the ASR audit log page reads.
+                    (new AuditLogModel())->record(
+                        'save',
+                        'form_values',
+                        $formValueId,
+                        'Saved form_values (form_id: ' . ($currentFormId ?? 'null')
+                            . ', section_id: ' . $sectionId . ')',
+                        [
+                            'asr_id'     => $currentAsrId,
+                            'section_id' => $sectionId,
+                            'form_id'    => $currentFormId,
+                        ],
+                        [
+                            'values' => $payload,
+                        ]
+                    );
+                } elseif ($currentFormId) {
+                    // Saved via a direct form/template edit (no ASR context) ->
+                    // log under forms only.
+                    (new AuditLogModel())->record(
+                        'save_data',
+                        'forms',
+                        (int) $currentFormId,
+                        'Saved data for section ' . $sectionId,
+                        [
+                            'section_id' => $sectionId,
+                            'form_id'    => $currentFormId,
+                        ],
+                        [
+                            'values' => $payload,
+                        ]
+                    );
+                }
 
                 if ($currentFormId) {
-                    $db->table('audit_logs')->insert([
-                        'user_id'    => $savedBy,
-                        'action'     => 'save_data',
-                        'module'     => 'forms',
-                        'entity_id'  => $currentFormId,
-                        'remark'     => 'Saved data for section ' . $sectionId,
-                        'created_at' => $savedAt,
-                    ]);
-
                     $db->table('forms')->where('id', $currentFormId)->update([
                         'updated_by' => $savedBy,
                         'updated_at' => $savedAt,
@@ -615,9 +638,28 @@ public function index($formKey = 'accuracyform')
         // Newest first for display.
         $auditLogs = array_reverse($auditLogs);
 
+        $perPage = 10;
+        $totalLogs = count($auditLogs);
+        $totalPages = max(1, (int) ceil($totalLogs / $perPage));
+
+        $page = (int) (service('request')->getGet('page') ?? 1);
+        if ($page < 1) {
+            $page = 1;
+        } elseif ($page > $totalPages) {
+            $page = $totalPages;
+        }
+
+        $pagedAuditLogs = array_slice($auditLogs, ($page - 1) * $perPage, $perPage);
+
         return view('forms/logs', [
             'form'       => $form,
-            'auditLogs'  => $auditLogs,
+            'auditLogs'  => $pagedAuditLogs,
+            'pagination' => [
+                'page'       => $page,
+                'totalPages' => $totalPages,
+                'total'      => $totalLogs,
+                'perPage'    => $perPage,
+            ],
             'breadcrumb' => 'Audit log',
         ]);
     }
