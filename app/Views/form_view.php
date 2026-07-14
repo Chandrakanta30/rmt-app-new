@@ -791,7 +791,8 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         <?php endforeach; ?>
     </div>
 
-    <!-- Bottom Action Bar with View button and Status Checkboxes -->
+    <!-- Bottom Action Bar with View button and Status Checkboxes (hidden when opened from an ASR mapping) -->
+    <?php if (empty($asrId)): ?>
     <div class="bottom-action-bar">
         <div class="bottom-action-left">
             <?php if (!$viewMode): ?>
@@ -840,6 +841,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             </div>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 <?= $this->endSection() ?>
 

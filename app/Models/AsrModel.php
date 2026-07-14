@@ -10,7 +10,7 @@ class AsrModel extends Model
     protected $primaryKey = 'id';
 
     protected $returnType    = 'array';
-    protected $allowedFields = ['asr_no', 'form_id', 'deleted_at', 'deleted_by'];
+    protected $allowedFields = ['asr_no', 'form_id', 'deleted_at'];
 
     protected $useTimestamps = true;
     protected $dateFormat    = 'datetime';
@@ -19,22 +19,23 @@ class AsrModel extends Model
 
     public function getWithFormDetails()
     {
-        return $this->select('form_asr_mapping.*, forms.name as form_name, forms.form_key')
+        return $this->select('form_asr_mapping.*, forms.name as form_name, forms.form_key, creator.name as created_by_name')
             ->join('forms', 'forms.id = form_asr_mapping.form_id', 'left')
+            ->join('audit_logs', "audit_logs.entity_id = form_asr_mapping.id AND audit_logs.module = 'asr_no' AND audit_logs.action = 'create'", 'left')
+            ->join('users creator', 'creator.id = audit_logs.user_id', 'left')
             ->where('form_asr_mapping.deleted_at', null)
             ->orderBy('form_asr_mapping.id', 'DESC')
             ->findAll();
     }
 
     /**
-     * Soft delete: stamps deleted_at/deleted_by instead of removing the row.
-     * The reason for deletion is recorded separately in the audit log.
+     * Soft delete: stamps deleted_at instead of removing the row.
+     * Who deleted it and why is recorded separately in the audit log.
      */
-    public function softDelete(int $id, int $deletedBy): bool
+    public function softDelete(int $id): bool
     {
         return $this->update($id, [
             'deleted_at' => date('Y-m-d H:i:s'),
-            'deleted_by' => $deletedBy,
         ]);
     }
 }

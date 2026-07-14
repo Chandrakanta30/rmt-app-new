@@ -804,10 +804,44 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
+        /* ========== PAGE LOADER ========== */
+        #page-loader-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(238, 243, 246, 0.75);
+            backdrop-filter: blur(2px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 5000;
+        }
+
+        #page-loader-overlay.active {
+            display: flex;
+        }
+
+        .page-loader-spinner {
+            width: 46px;
+            height: 46px;
+            border: 4px solid rgba(21, 62, 92, 0.15);
+            border-top-color: #289672;
+            border-radius: 50%;
+            animation: page-loader-spin 0.7s linear infinite;
+        }
+
+        @keyframes page-loader-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
     <?= $this->renderSection('styles') ?>
 </head>
 <body>
+<div id="page-loader-overlay" aria-hidden="true">
+    <div class="page-loader-spinner"></div>
+</div>
 <div class="app-container">
     <!-- Include Sidebar -->
     <?= view('components/sidebar') ?>
@@ -878,6 +912,40 @@
     document.getElementById('sidebarToggle')?.addEventListener('click', function() {
         document.querySelector('.sidebar')?.classList.toggle('open');
     });
+
+    // Global page loader: shown on real link navigations and form submits,
+    // hidden again automatically when the new page loads (or on bfcache restore).
+    (function() {
+        const overlay = document.getElementById('page-loader-overlay');
+        if (!overlay) return;
+
+        const showLoader = () => overlay.classList.add('active');
+        const hideLoader = () => overlay.classList.remove('active');
+
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+
+            const href = link.getAttribute('href');
+            const isHash = !href || href.startsWith('#');
+            const isJsLink = href.startsWith('javascript:');
+            const opensNewTab = link.target && link.target !== '_self';
+            const isModified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
+
+            if (!isHash && !isJsLink && !opensNewTab && !isModified) {
+                showLoader();
+            }
+        });
+
+        document.addEventListener('submit', function(e) {
+            if (!e.defaultPrevented) {
+                showLoader();
+            }
+        }, true);
+
+        window.addEventListener('pageshow', hideLoader);
+        window.addEventListener('pagehide', hideLoader);
+    })();
 </script>
 <?= $this->renderSection('scripts') ?>
 </body>

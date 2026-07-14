@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\FormModel;
 use App\Models\SectionModel;
 use App\Models\FieldModel;
+use App\Models\AuditLogModel;
 use CodeIgniter\Controller;
 
 class Form extends Controller
@@ -435,15 +436,24 @@ public function index($formKey = 'accuracyform')
 
                 // Audit log: record every form_values save.
                 $formValueId = $db->insertID();
-                $db->table('audit_logs')->insert([
-                    'user_id'    => session()->get('user_id'),
-                    'action'     => 'save',
-                    'module'     => 'form_values',
-                    'entity_id'  => $formValueId,
-                    'remark'     => 'Saved form_values (form_id: ' . ($form_id[$sectionId] ?? 'null')
-                        . ', section_id: ' . $sectionId . ')',
-                    'created_at' => date('Y-m-d H:i:s'),
-                ]);
+                $savedRow = $db->table('form_values')
+                    ->where('id', $formValueId)
+                    ->get()
+                    ->getRowArray();
+
+                (new AuditLogModel())->record(
+                    'save',
+                    'form_values',
+                    $formValueId,
+                    'Saved form_values (form_id: ' . ($form_id[$sectionId] ?? 'null') . ', section_id: ' . $sectionId . ')',
+                    [
+                        'form_id'    => $currentFormId,
+                        'section_id' => $sectionId,
+                        'asr_id'     => $currentAsrId > 0 ? $currentAsrId : null,
+                        'submitted_values' => $payload,
+                    ],
+                    $savedRow
+                );
             } else {
 
                 // ⚠️ SECURITY: validate table name
