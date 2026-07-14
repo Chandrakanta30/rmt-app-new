@@ -6,8 +6,6 @@
 <?php
 helper('workflow');
 
-$status = $form['status'] ?? 'created';
-
 // "13 Jul 2026 at 2:41 pm" reads better than a raw DATETIME in a history list.
 $human = static function (?string $ts): string {
     if (!$ts) {
@@ -51,17 +49,6 @@ $human = static function (?string $ts): string {
         border-bottom: 1px solid #e6edf3;
         background: #f7fafc;
     }
-
-    .meta-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 1.1rem;
-        padding: 1.2rem;
-        border-bottom: 1px solid #eef3f7;
-        background: #fcfdfe;
-    }
-    .meta-grid dt { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #7a8a99; font-weight: 700; margin-bottom: 0.35rem; }
-    .meta-grid dd { margin: 0; color: #28394b; font-size: 0.92rem; }
 
     /* seven columns don't fit a narrow window — let the table scroll, not the page */
     .table-scroll { overflow-x: auto; }
@@ -108,29 +95,6 @@ $human = static function (?string $ts): string {
     <!-- Ownership + current state, then the trail of everything that got it here -->
     <div class="history-card">
         <h2>Audit log</h2>
-
-        <dl class="meta-grid">
-            <div>
-                <dt>Current status</dt>
-                <dd><span class="status-badge status-<?= esc($status) ?>"><?= esc(workflow_status_label($status)) ?></span></dd>
-            </div>
-            <div>
-                <dt>Created by</dt>
-                <dd><?= esc($form['created_by_name'] ?: '—') ?></dd>
-            </div>
-            <div>
-                <dt>Created on</dt>
-                <dd><?= esc($human($form['created_at'] ?? null)) ?></dd>
-            </div>
-            <div>
-                <dt>Last updated by</dt>
-                <dd><?= esc($form['updated_by_name'] ?: '—') ?></dd>
-            </div>
-            <div>
-                <dt>Last updated on</dt>
-                <dd><?= esc($human($form['updated_at'] ?? null)) ?></dd>
-            </div>
-        </dl>
 
         <div class="table-scroll">
             <table class="history-table">
