@@ -29,7 +29,10 @@ $routes->group('', ['filter' => 'permission:view_forms'], function($routes) {
     $routes->get('form/(:any)', 'Form::index/$1');
 });
 
-$routes->post('form/status', 'Form::updateStatus', ['filter' => 'permission:view_forms']);
+
+$routes->post('form/status/(:num)', 'Form::updateStatus/$1', ['filter' => 'permission:view_forms']);
+$routes->get('forms/logs/(:num)', 'Form::logs/$1', ['filter' => 'permission:view_forms']);
+
 $routes->post('form/submit', 'Form::submit', ['filter' => 'permission:submit_data']);
 
 // ASR No. routes
@@ -66,4 +69,4 @@ $routes->group('permissions', ['filter' => 'permission:manage_permissions'], fun
     $routes->post('store', [PermissionController::class, 'store']);
     $routes->get('delete/(:num)', [PermissionController::class, 'delete/$1']);
 });
-$routes->post('form/update_status/(:num)', 'Form::updateStatus/$1');
+//$routes->post('form/update_status/(:num)', 'Form::updateStatus/$1');

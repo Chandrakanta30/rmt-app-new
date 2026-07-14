@@ -3,6 +3,7 @@
 <?= $this->section('title') ?>Forms<?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
+<?php helper('workflow'); ?>
 <style>
     .forms-table-wrap {
         background: white;
@@ -84,9 +85,29 @@
         white-space: nowrap;
     }
 
-    .status-badge.status-created  { background: #eef2f7; color: #475569; }
-    .status-badge.status-approved { background: #edf8f3; color: #15704e; }
-    .status-badge.status-reviewed { background: #fff5e6; color: #b26a00; }
+    /* neutral = not started, amber = waiting on somebody, red = sent back, green = done */
+    .status-badge.status-created                  { background: #eef2f7; color: #475569; }
+    .status-badge.status-pending_review           { background: #fff5e6; color: #b26a00; }
+    .status-badge.status-resubmitted_for_review   { background: #fff5e6; color: #b26a00; }
+    .status-badge.status-pending_approval         { background: #fff5e6; color: #b26a00; }
+    .status-badge.status-resubmitted_for_approval { background: #fff5e6; color: #b26a00; }
+    .status-badge.status-review_rejected          { background: #fdeeee; color: #b42318; }
+    .status-badge.status-approval_rejected        { background: #fdeeee; color: #b42318; }
+    .status-badge.status-review_completed         { background: #eef4ff; color: #1d4ed8; }
+    .status-badge.status-approved                 { background: #edf8f3; color: #15704e; }
+
+    .status-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+    }
+
+    .action-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+    }
 
     .status-filter {
         display: flex;
@@ -153,9 +174,9 @@
                 <span>Filter by status</span>
                 <select id="statusFilter">
                     <option value="">All statuses</option>
-                    <option value="created">Created</option>
-                    <option value="reviewed">Reviewed</option>
-                    <option value="approved">Approved</option>
+                    <?php foreach (workflow_statuses() as $slug => $label): ?>
+                        <option value="<?= esc($slug) ?>"><?= esc($label) ?></option>
+                    <?php endforeach; ?>
                 </select>
             </label>
             <div class="forms-total"><?= count($forms) ?> total</div>
@@ -186,10 +207,16 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="status-badge status-<?= esc($status) ?>"><?= esc($status) ?></span>
+                                <div class="status-cell">
+                                    <span class="status-badge status-<?= esc($status) ?>"><?= esc(workflow_status_label($status)) ?></span>
+                                    <?= workflow_action_buttons($form) ?>
+                                </div>
                             </td>
                             <td>
-                                <a class="btn btn-primary" href="<?= base_url('form/' . $form['form_key'] . '?mode=view') ?>">View</a>
+                                <div class="action-cell">
+                                    <a class="btn btn-primary" href="<?= base_url('form/' . $form['form_key'] . '?mode=view') ?>">View</a>
+                                    <a class="btn btn-secondary" href="<?= base_url('forms/logs/' . $form['id']) ?>">Audit log</a>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -201,6 +228,8 @@
         </div>
     <?php endif; ?>
 </div>
+
+<?= $this->include('partials/workflow_modal') ?>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>

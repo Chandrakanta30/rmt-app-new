@@ -120,9 +120,12 @@ public function index($formKey = 'accuracyform')
     // 1. Get form
     $form = $formModel->where('form_key', $formKey)->first();
 
-    if (!$form) {
-        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-    }
+        if (!$form) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+
+        $viewOnly = (service('request')->getGet('mode') === 'view');
 
     // 2. Check composite
     $db = \Config\Database::connect();
@@ -212,8 +215,6 @@ public function index($formKey = 'accuracyform')
                 continue;
             }
 
-            // Fallback: a section bound to a real table with no form_values record
-            // (legacy data written straight to its own table) reads its latest row.
             $table = !empty($section['table']) ? $section['table'] : null;
             if ($asrId <= 0 && $table && in_array($table, $db->listTables(), true)) {
                 $tableRow = $db->table($table)
@@ -255,11 +256,6 @@ public function index($formKey = 'accuracyform')
         $formIds  = $request->getPost('form_id');
         $asrIds   = $request->getPost('asr_id');
 
-        // An unchecked checkbox submits NOTHING, so a section whose only input is
-        // an unticked checkbox is entirely absent from `sections` — which used to
-        // trip "No data submitted" and never record the 0. The hidden form_id[]
-        // input is always rendered per section, so use it to discover every
-        // section id even when that section posted no field values.
         $sectionIds = is_array($sections) ? array_keys($sections) : [];
         if (is_array($formIds)) {
             $sectionIds = array_values(array_unique(array_merge($sectionIds, array_keys($formIds))));
@@ -271,9 +267,6 @@ public function index($formKey = 'accuracyform')
 
         $specialCharPattern = '/[^A-Za-z0-9\s]/';
 
-        // Checkboxes only submit a value ("1") when ticked; an unticked box is
-        // simply absent from the POST. Force every checkbox field to an explicit
-        // "1"/"0" so the stored value is never an ambiguous empty string.
         $normalizeCheckboxes = static function (array $row, array $checkboxFields): array {
             foreach ($checkboxFields as $cb) {
                 $row[$cb] = (isset($row[$cb]) && (string) $row[$cb] === '1') ? '1' : '0';
@@ -284,8 +277,7 @@ public function index($formKey = 'accuracyform')
 
         foreach ($sectionIds as $sectionId) {
 
-            // Whether this section actually posted any field values. A section
-            // absent from `sections` only made it here via the hidden form_id[].
+
             $submitted = is_array($sections) && array_key_exists($sectionId, $sections);
             $fields    = $submitted ? $sections[$sectionId] : [];
 
@@ -293,14 +285,12 @@ public function index($formKey = 'accuracyform')
             $form_id = $request->getPost('form_id');
             $table = is_array($tableNames) ? ($tableNames[$sectionId] ?? null) : $tableNames;
 
-            // Row-action mode: group/editable store many rows as an array;
-            // singular (and grid/inline) store a single record object.
+
             $actionFlags = $request->getPost('action_flag');
             $actionFlag  = is_array($actionFlags) ? strtolower($actionFlags[$sectionId] ?? '') : '';
             $storeAsArray = in_array($actionFlag, ['group', 'editable'], true);
 
-            // Field definitions for this section: used to coerce checkboxes to an
-            // explicit 1/0 and (for real tables) to validate text-like fields.
+
             $sectionFieldDefs = $fieldModel->where('section_id', $sectionId)->findAll();
             $checkboxFields   = [];
             foreach ($sectionFieldDefs as $fieldDef) {
@@ -309,17 +299,12 @@ public function index($formKey = 'accuracyform')
                 }
             }
 
-            // A section that posted nothing is only worth processing when it has
-            // checkbox fields to record as "0". Skip otherwise so we never wipe an
-            // untouched section with a blank record, and never inject a phantom
-            // row into an empty repeatable (editable/group) table.
+
             if (!$submitted && (empty($checkboxFields) || $storeAsArray)) {
                 continue;
             }
 
-            // Repeatable table layouts submit each column as an array
-            // (sections[sid][field][] -> [val0, val1, ...]). Detect that and
-            // transpose the columns back into one record per row.
+
             $isRepeatable = false;
             foreach ((array) $fields as $value) {
                 if (is_array($value)) {
@@ -329,9 +314,7 @@ public function index($formKey = 'accuracyform')
             }
 
             if ($isRepeatable) {
-                // Inputs are indexed by row: sections[sid][field][rowIndex].
-                // Collect the actual row indexes used (an unchecked checkbox or a
-                // deleted row leaves gaps — iterating real keys keeps rows aligned).
+
                 $rowIndexes = [];
                 foreach ($fields as $value) {
                     if (is_array($value)) {
@@ -348,10 +331,7 @@ public function index($formKey = 'accuracyform')
                     $row = [];
                     foreach ($fields as $fieldName => $value) {
                         if (is_array($value)) {
-                            // Array columns vary per row. Only include this field when
-                            // it actually has a value at this index — otherwise it
-                            // belongs to a DIFFERENT block instance and padding it with
-                            // "" bloats the record with unrelated empty fields.
+
                             if (array_key_exists($idx, $value)) {
                                 $row[$fieldName] = $value[$idx];
                             }
@@ -379,10 +359,6 @@ public function index($formKey = 'accuracyform')
 
             if ($table === 'form_values' || empty($table)) {
 
-                // group/editable -> store every row as a JSON array (input 0, input 1, ...).
-                // singular / grid / inline -> keep a single record object.
-                // Coerce checkboxes to "1"/"0" on the rows we actually keep (done
-                // after the blank-row skip so an unticked box never revives a row).
                 if ($storeAsArray) {
                     $payload = array_map(
                         static fn(array $r) => $normalizeCheckboxes($r, $checkboxFields),
@@ -436,24 +412,35 @@ public function index($formKey = 'accuracyform')
 
                 // Audit log: record every form_values save.
                 $formValueId = $db->insertID();
-                $savedRow = $db->table('form_values')
-                    ->where('id', $formValueId)
-                    ->get()
-                    ->getRowArray();
+                $savedAt     = date('Y-m-d H:i:s');
+                $savedBy     = session()->get('user_id');
 
-                (new AuditLogModel())->record(
-                    'save',
-                    'form_values',
-                    $formValueId,
-                    'Saved form_values (form_id: ' . ($form_id[$sectionId] ?? 'null') . ', section_id: ' . $sectionId . ')',
-                    [
-                        'form_id'    => $currentFormId,
-                        'section_id' => $sectionId,
-                        'asr_id'     => $currentAsrId > 0 ? $currentAsrId : null,
-                        'submitted_values' => $payload,
-                    ],
-                    $savedRow
-                );
+                $db->table('audit_logs')->insert([
+                    'user_id'    => $savedBy,
+                    'action'     => 'save',
+                    'module'     => 'form_values',
+                    'entity_id'  => $formValueId,
+                    'remark'     => 'Saved form_values (form_id: ' . ($currentFormId ?? 'null')
+                        . ', section_id: ' . $sectionId . ')',
+                    'created_at' => $savedAt,
+                ]);
+
+
+                if ($currentFormId) {
+                    $db->table('audit_logs')->insert([
+                        'user_id'    => $savedBy,
+                        'action'     => 'save_data',
+                        'module'     => 'forms',
+                        'entity_id'  => $currentFormId,
+                        'remark'     => 'Saved data for section ' . $sectionId,
+                        'created_at' => $savedAt,
+                    ]);
+
+                    $db->table('forms')->where('id', $currentFormId)->update([
+                        'updated_by' => $savedBy,
+                        'updated_at' => $savedAt,
+                    ]);
+                }
             } else {
 
                 // ⚠️ SECURITY: validate table name
@@ -495,49 +482,143 @@ public function index($formKey = 'accuracyform')
         // return redirect('http://localhost:8888/code4/public/index.php/form')->with('success', 'Saved successfully');
         // return redirect()->back()->with('success', 'Saved successfully');
     }
-  public function updateStatus($formId)
-{
-    helper('auth');
-    $request = service('request');
-    $db = \Config\Database::connect();
-    
-    $reviewed = $request->getPost('reviewed') ? 1 : 0;
-    $approved = $request->getPost('approved') ? 1 : 0;
 
-    $form = $db->table('forms')->select('status')->where('id', $formId)->get()->getRowArray();
-    if (! $form) {
-        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-    }
-    $currentStatus = $form['status'] ?? 'Created';
+    public function updateStatus($formId)
+    {
+        helper(['auth', 'workflow']);
 
-    // Only authorized roles may toggle these values.
-    if (!has_role('Reviewer') && !has_role('Admin')) {
-        $reviewed = 0;
-    }
-    if (!has_role('Approver') && !has_role('Admin')) {
-        $approved = 0;
-    }
+        $request = service('request');
+        $db      = \Config\Database::connect();
 
-    // Approval only allowed after review.
-    if ($approved === 1 && !in_array($currentStatus, ['Reviewed', 'Approved'], true)) {
-        return redirect()->back()->with('error', 'Form must be reviewed before it can be approved.');
-    }
-    
-    // Determine status based on checkboxes
-    if ($approved == 1) {
-        $status = 'Approved';
-    } elseif ($reviewed == 1) {
-        $status = 'Reviewed';
-    } else {
-        $status = 'Created';
-    }
-    
-    $db->table('forms')
-        ->where('id', $formId)
-        ->update([
-            'status' => $status
+        $actionName = (string) $request->getPost('action');
+        $remark     = trim((string) $request->getPost('remark'));
+
+        $action = workflow_action($actionName);
+        if (!$action) {
+            return redirect()->back()->with('error', 'Unknown action.');
+        }
+
+        $form = $db->table('forms')->select('id, name, status')->where('id', $formId)->get()->getRowArray();
+        if (!$form) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+        $currentStatus = $form['status'] ?: 'created';
+
+        if (!has_permission($action['permission'])) {
+            return redirect()->back()->with('error', 'You are not allowed to ' . lcfirst($action['label']) . '.');
+        }
+
+        // Guard the state machine: you can only fire an action from a status it
+        // is actually legal in. This is what stops "approve" jumping the review.
+        if (!in_array($currentStatus, $action['from'], true)) {
+            return redirect()->back()->with(
+                'error',
+                'Cannot ' . lcfirst($action['label']) . ' — the form is currently "'
+                    . workflow_status_label($currentStatus) . '".'
+            );
+        }
+
+        // Rejections must say why. That message is what the analyst redoes from.
+        if ($action['remark'] && $remark === '') {
+            return redirect()->back()->with('error', 'A reason is required to ' . lcfirst($action['label']) . '.');
+        }
+
+        $newStatus = $action['to'];
+        $userId    = session()->get('user_id');
+        $now       = date('Y-m-d H:i:s');
+
+        $db->transStart();
+
+        $db->table('forms')->where('id', $formId)->update([
+            'status'     => $newStatus,
+            'updated_by' => $userId,
+            'updated_at' => $now,
         ]);
-    
-    return redirect()->back()->with('success', 'Status updated successfully');
-}
+
+        // One row in audit_logs is the whole history
+  
+        $db->table('audit_logs')->insert([
+            'user_id'         => $userId,
+            'action'          => $actionName,
+            'module'          => 'forms',
+            'entity_id'       => $formId,
+            'remark'          => $remark !== '' ? $remark : null,
+            'request_payload' => json_encode([
+                'from_status' => $currentStatus,
+                'to_status'   => $newStatus,
+            ]),
+            'current_record'  => json_encode($form),
+            'created_at'      => $now,
+        ]);
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Could not update the status. Please try again.');
+        }
+
+        return redirect()->back()->with(
+            'success',
+            $form['name'] . ' is now "' . workflow_status_label($newStatus) . '".'
+        );
+    }
+
+
+    public function logs($formId)
+    {
+        helper('workflow');
+
+        $db = \Config\Database::connect();
+
+        $form = $db->table('forms f')
+            ->select('f.*, cu.name AS created_by_name, uu.name AS updated_by_name')
+            ->join('users cu', 'cu.id = f.created_by', 'left')
+            ->join('users uu', 'uu.id = f.updated_by', 'left')
+            ->where('f.id', $formId)
+            ->get()
+            ->getRowArray();
+
+        if (!$form) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+
+        $auditLogs = $db->table('audit_logs a')
+            ->select('a.*, u.name AS user_name, u.email AS user_email')
+            ->join('users u', 'u.id = a.user_id', 'left')
+            ->where('a.module', 'forms')
+            ->where('a.entity_id', $formId)
+            ->orderBy('a.id', 'ASC')
+            ->get()
+            ->getResultArray();
+
+
+        $prevUser = $form['created_by_name'] ?: null;
+        $prevAt   = $form['created_at'] ?: null;
+
+        foreach ($auditLogs as &$log) {
+            $payload            = json_decode((string) $log['request_payload'], true) ?: [];
+            $log['from_status'] = $payload['from_status'] ?? null;
+            $log['to_status']   = $payload['to_status'] ?? null;
+
+            $log['created_by_name'] = $prevUser;
+            $log['created_on']      = $prevAt;
+            $log['updated_by_name'] = $log['user_name'];
+            $log['updated_on']      = $log['created_at'];
+
+            $prevUser = $log['user_name'];
+            $prevAt   = $log['created_at'];
+        }
+        unset($log);
+
+        // Newest first for display.
+        $auditLogs = array_reverse($auditLogs);
+
+        return view('forms/logs', [
+            'form'       => $form,
+            'auditLogs'  => $auditLogs,
+            'breadcrumb' => 'Audit log',
+        ]);
+    }
 }

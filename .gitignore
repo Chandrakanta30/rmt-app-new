@@ -1,8 +1,11 @@
-writable/*
-!writable/.htaccess
+writable/**
+!writable/**/
+!writable/**/.htaccess
+!writable/**/index.html
 vendor/
 .env
 .env.local
 .DS_Store
 Thumbs.db
-debugbar/
+/debugbar/
+app/Config/Database.php

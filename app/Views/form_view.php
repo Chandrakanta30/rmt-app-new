@@ -681,37 +681,11 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     <?php endif; ?>
 
     <?php
-    helper('auth');
+    helper(['auth', 'workflow']);
 
-    // Get current status from form data
-    $currentStatus = $form['status'] ?? 'Created';
-    $isReviewed = in_array($currentStatus, ['Reviewed', 'Approved'], true);
-    $isApproved = $currentStatus === 'Approved';
-    $viewMode = isset($_GET['mode']) && $_GET['mode'] === 'view';
-
-    // Only the Reviewer role may toggle Reviewed, and only the Approver role may toggle Approved.
-    // Admin can do both.
-    $canToggleReviewed = has_role('Reviewer') || has_role('Admin');
-    $canToggleApproved = has_role('Approver') || has_role('Admin');
-    $approveAllowedByStatus = in_array($currentStatus, ['Reviewed', 'Approved'], true);
-    $reviewedDisabled = $canToggleReviewed ? '' : 'disabled';
-    $approvedDisabled = ($canToggleApproved && $approveAllowedByStatus) ? '' : 'disabled';
-    $reviewedTitle = $canToggleReviewed ? '' : 'title="Only reviewers or admins can change this."';
-    if (! $canToggleApproved) {
-        $approvedTitle = 'title="Only approvers or admins can change this."';
-    } elseif (! $approveAllowedByStatus) {
-        $approvedTitle = 'title="Form must be reviewed before approval."';
-    } else {
-        $approvedTitle = '';
-    }
-    $reviewedWarning = $canToggleReviewed ? '' : 'Reviewer only can change this status.';
-    if (! $canToggleApproved) {
-        $approvedWarning = 'Approver only can change this status.';
-    } elseif (! $approveAllowedByStatus) {
-        $approvedWarning = 'Form must be reviewed before approval.';
-    } else {
-        $approvedWarning = '';
-    }
+    $currentStatus    = $form['status'] ?? 'created';
+    $viewMode         = isset($_GET['mode']) && $_GET['mode'] === 'view';
+    $workflowActions  = workflow_available_actions($currentStatus);
     ?>
 
 
@@ -817,32 +791,18 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         <div class="bottom-action-right">
             <div class="status-section">
                 <span class="status-label">Status:</span>
-                <span class="status-badge <?= strtolower($currentStatus) ?>"><?= esc($currentStatus) ?></span>
-                
-                <form method="post" action="<?= site_url('form/update_status/' . $form['id']) ?>" class="status-form">
-                    <?= csrf_field() ?>
-                    <label class="status-checkbox <?= $isReviewed ? 'checked' : '' ?> <?= $canToggleReviewed ? '' : 'disabled' ?>" data-warning="<?= esc($reviewedWarning) ?>">
-                        <input type="checkbox" name="reviewed" value="1" <?= $isReviewed ? 'checked' : '' ?> <?= $reviewedDisabled ?> <?= $reviewedTitle ?> <?= $canToggleReviewed ? 'onchange="this.form.submit()"' : '' ?>>
-                        <span class="checkmark"></span>
-                        Reviewed
-                        <?php if (! $canToggleReviewed): ?>
-                            <span class="status-note">Only Reviewer or Admin can change this.</span>
-                        <?php endif; ?>
-                    </label>
-                    <label class="status-checkbox <?= $isApproved ? 'checked' : '' ?> <?= $canToggleApproved ? '' : 'disabled' ?>" data-warning="<?= esc($approvedWarning) ?>">
-                        <input type="checkbox" name="approved" value="1" <?= $isApproved ? 'checked' : '' ?> <?= $approvedDisabled ?> <?= $approvedTitle ?> <?= $canToggleApproved ? 'onchange="this.form.submit()"' : '' ?>>
-                        <span class="checkmark"></span>
-                        Approved
-                        <?php if (! $canToggleApproved): ?>
-                            <span class="status-note">Only Approver or Admin can change this.</span>
-                        <?php endif; ?>
-                    </label>
-                </form>
+                <span class="status-badge status-<?= esc($currentStatus) ?>"><?= esc(workflow_status_label($currentStatus)) ?></span>
+
+                <?= workflow_action_buttons($form) ?>
+
+                <a class="btn btn-secondary" href="<?= site_url('forms/logs/' . $form['id']) ?>">Audit log</a>
             </div>
         </div>
     </div>
     <?php endif; ?>
 </div>
+
+<?= $this->include('partials/workflow_modal') ?>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
