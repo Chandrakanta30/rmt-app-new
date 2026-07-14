@@ -638,9 +638,28 @@ public function index($formKey = 'accuracyform')
         // Newest first for display.
         $auditLogs = array_reverse($auditLogs);
 
+        $perPage = 10;
+        $totalLogs = count($auditLogs);
+        $totalPages = max(1, (int) ceil($totalLogs / $perPage));
+
+        $page = (int) (service('request')->getGet('page') ?? 1);
+        if ($page < 1) {
+            $page = 1;
+        } elseif ($page > $totalPages) {
+            $page = $totalPages;
+        }
+
+        $pagedAuditLogs = array_slice($auditLogs, ($page - 1) * $perPage, $perPage);
+
         return view('forms/logs', [
             'form'       => $form,
-            'auditLogs'  => $auditLogs,
+            'auditLogs'  => $pagedAuditLogs,
+            'pagination' => [
+                'page'       => $page,
+                'totalPages' => $totalPages,
+                'total'      => $totalLogs,
+                'perPage'    => $perPage,
+            ],
             'breadcrumb' => 'Audit log',
         ]);
     }

@@ -17,6 +17,8 @@
         transition: transform 0.08s ease, filter 0.15s ease;
     }
     .wf-btn:hover { transform: translateY(-1px); filter: brightness(0.96); }
+
+    .wf-btn[data-wf-action="send_for_review"] { width: 38px; }
     .wf-btn:focus-visible { outline: 2px solid #289672; outline-offset: 2px; }
 
     .wf-primary { background: #eef4ff; border-color: #c9dbfb; color: #1d4ed8; }
