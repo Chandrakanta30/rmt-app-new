@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\FormModel;
 use App\Models\SectionModel;
 use App\Models\FieldModel;
+use App\Models\AuditLogModel;
 use CodeIgniter\Controller;
 
 class Form extends Controller
@@ -112,6 +113,7 @@ class Form extends Controller
     // }
 public function index($formKey = 'accuracyform')
 {
+    $asr=$_GET['asr']??0;
     $formModel = new FormModel();
     $sectionModel = new SectionModel();
 
@@ -154,6 +156,7 @@ public function index($formKey = 'accuracyform')
         // Read form_values first so saved data reflects back
         $row = $db->table('form_values')
             ->where('section_id', $section['id'])
+            ->where('asr_id', $asr)
             ->orderBy('id', 'DESC')
             ->get()
             ->getRowArray();
@@ -171,7 +174,8 @@ public function index($formKey = 'accuracyform')
 
         // Check if form is approved for edit access
         $canEdit = ($form['status'] === 'Approved');
-        $asrId = (int) ($request->getGet('asr_id') ?? 0);
+        // $asrId = (int) ($request->getGet('asr_id') ?? 0);
+        $asrId = $asr;
 
         if ($asrId > 0) {
             $asrMapping = $db->table('form_asr_mapping')
@@ -196,9 +200,8 @@ public function index($formKey = 'accuracyform')
             $valuesQuery = $db->table('form_values')
                 ->where('section_id', $section['id']);
 
-            if ($asrId > 0) {
                 $valuesQuery->where('asr_id', $asrId);
-            }
+            
 
             $row = $valuesQuery
                 ->orderBy('id', 'DESC')
