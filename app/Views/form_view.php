@@ -36,9 +36,7 @@ $parseFieldOptions = static function ($raw): array {
     $options = [];
     foreach ($decoded as $opt) {
         if (is_array($opt)) {
-            // Builder stores {id, label} where `id` is the value to save and
-            // `label` is shown. Prefer id (or an explicit `value`) for the value
-            // so we never accidentally save the label as the stored value.
+
             $value = (string) ($opt['value'] ?? $opt['id'] ?? $opt['label'] ?? '');
             $label = (string) ($opt['label'] ?? $opt['value'] ?? $opt['id'] ?? $value);
         } else {
@@ -55,10 +53,7 @@ $parseFieldOptions = static function ($raw): array {
 };
 
 // Renders one form control for a field.
-// $rowIndex: when set (repeatable table rows) the input name is indexed
-//   sections[sid][field][0], [1], ... so each row submits as its own record
-//   and an unchecked checkbox simply leaves a gap instead of shifting rows.
-// $rowValues: the saved values for this specific row (used to prefill).
+
 $renderTemplateInput = static function (array $field, array $section, array $values, ?int $rowIndex = null, ?array $rowValues = null) use ($specialCharAttrs, $parseFieldOptions): string {
     $validation = json_decode($field['validation'] ?? 'null', true) ?? [];
 
@@ -112,9 +107,6 @@ $renderTemplateInput = static function (array $field, array $section, array $val
     }
 
     // --- MEASUREMENT --- free-form technical value: decimals, units, slashes,
-    // scientific notation (40.5 Kv, Kv/Ma, 1.54098×10⁰, "about 09 minutes").
-    // Rendered as text WITHOUT the letters/numbers/spaces restriction so any
-    // symbol is accepted.
     if ($type === 'measurement') {
         return '<span class="template-field template-field--measurement">(' . $label . ')'
             . '<input type="text" inputmode="text" value="' . esc($value) . '" name="' . $name . '"' . $required . '></span>';
@@ -128,9 +120,6 @@ $renderTemplateInput = static function (array $field, array $section, array $val
 
     $specialValidation = $specialCharAttrs($field);
 
-    // Number inputs need an explicit step or browsers default to step=1 and
-    // reject decimals (23.45, 40.5). Honor an explicit step/min/max from the
-    // field's validation, otherwise allow any decimal.
     $numericAttrs = '';
     if ($type === 'number') {
         $step = $validation['step'] ?? 'any';
@@ -175,9 +164,7 @@ $parseCsvLine = static function (string $line): array {
 };
 
 // Renders a CSV table template as an HTML <table>
-// Cell syntax: plain text → <th>/<td> label
-//              [fieldName] or [fieldName|input] → input field
-//              [fieldName|label] or [fieldName|header] → read-only text
+
 $renderTableTemplate = static function (string $template, array $section, array $values) use ($renderTemplateInput, $parseCsvLine): string {
     $fieldMap = [];
 
@@ -185,45 +172,55 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $fieldMap[$field['name']] = $field;
     }
 
-    // Renders a single cell, prefilling input values from $rowValues (this row's saved data).
-    // $rowIndex indexes the input name for repeatable rows (null = single record).
-    $renderCell = static function (string $raw, array $rowValues, ?int $rowIndex) use ($fieldMap, $section, $values, $renderTemplateInput): string {
+    $resolveInputField = static function (string $raw) use ($fieldMap): ?array {
+        $t = trim($raw);
+
+        $looksLikeKey = static fn(string $k): bool => (bool) preg_match('/^[A-Za-z][\w-]*$/', $k);
+
+        $key = null;
+        if (preg_match('/^\{(.+)\}$/', $t, $m)) {
+            $key = trim($m[1]);
+        } elseif (preg_match('/^\[(.+)\]$/', $t, $m)) {
+            $parts = array_map('trim', explode('|', $m[1]));
+            $type  = strtolower($parts[1] ?? 'input');
+            if ($type === 'label' || $type === 'header') {
+                return null; // explicitly static
+            }
+            $key = $parts[0];
+        } else {
+            // Bare word that exactly matches a saved field (e.g. "input_1").
+            return $fieldMap[$t] ?? null;
+        }
+
+        if ($key === null || $key === '' || !$looksLikeKey($key)) {
+            return null;
+        }
+
+        if (isset($fieldMap[$key])) {
+            return $fieldMap[$key];
+        }
+
+        // Orphan token -> synthesize a text input keyed by the token name.
+        return ['name' => $key, 'label' => $key, 'type' => 'text', 'validation' => null, 'options' => null];
+    };
+
+    $renderCell = static function (string $raw, array $rowValues, ?int $rowIndex) use ($resolveInputField, $section, $values, $renderTemplateInput): string {
         $trimmed = trim($raw);
 
         if ($trimmed === '') {
             return '';
         }
 
-        // {fieldName} curly-brace syntax (e.g. {input_1})
-        if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
-            $field = $fieldMap[trim($m[1])] ?? null;
-            if ($field) {
-                return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
-            }
-        }
-
-        // [fieldName] or [fieldName|type] syntax
-        if (preg_match('/^\[(.+)\]$/', $trimmed, $m)) {
-            $parts    = array_map('trim', explode('|', $m[1]));
-            $fieldKey = $parts[0];
-            $cellType = strtolower($parts[1] ?? 'input');
-
-            if ($cellType === 'label' || $cellType === 'header') {
-                return esc($fieldKey);
-            }
-
-            $field = $fieldMap[$fieldKey] ?? null;
-
-            if ($field) {
-                return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
-            }
-        }
-
-        // Plain field name without brackets (e.g. "input_1" stored directly)
-        $field = $fieldMap[$trimmed] ?? null;
-
-        if ($field) {
+        $field = $resolveInputField($raw);
+        if ($field !== null) {
             return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
+        }
+
+        // Static cell: strip a [text|label]/[text|header] wrapper down to its text.
+        if (preg_match('/^\[(.+)\]$/', $trimmed, $m)) {
+            $parts = array_map('trim', explode('|', $m[1]));
+
+            return esc($parts[0]);
         }
 
         return esc($trimmed);
@@ -257,9 +254,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         return '';
     }
 
-    // Normalize saved data into a list of row objects:
-    //  - repeatable table  -> [ {..row0..}, {..row1..} ]
-    //  - single record     -> [ {..fields..} ]
+
     $saved     = $values[$section['id']] ?? [];
     $savedRows = [];
     if (is_array($saved) && !empty($saved)) {
@@ -267,34 +262,16 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $savedRows = $isList ? array_values($saved) : [$saved];
     }
 
-    // Row-action mode for this section:
-    //   editable -> user can add / delete rows (shows + Add Row and the Action column)
-    //   group    -> multiple rows saved together, but no add/delete UI
-    //   singular -> a single record; anything else behaves the same (no add UI)
+
     $actionFlag = strtolower($section['action_flag'] ?? '');
     $editable   = $actionFlag === 'editable';
     $group      = $actionFlag === 'group';
 
-    // Extract the backing field name of an input cell ([field|...] / {field} /
-    // bare name); returns null for label/header/plain-text cells.
-    $cellFieldName = static function (string $raw) use ($fieldMap): ?string {
-        $t = trim($raw);
-        if (preg_match('/^\{(.+)\}$/', $t, $m)) {
-            $k = trim($m[1]);
 
-            return isset($fieldMap[$k]) ? $k : null;
-        }
-        if (preg_match('/^\[(.+)\]$/', $t, $m)) {
-            $parts = array_map('trim', explode('|', $m[1]));
-            $type  = strtolower($parts[1] ?? 'input');
-            if ($type === 'label' || $type === 'header') {
-                return null;
-            }
+    $cellFieldName = static function (string $raw) use ($resolveInputField): ?string {
+        $field = $resolveInputField($raw);
 
-            return isset($fieldMap[$parts[0]]) ? $parts[0] : null;
-        }
-
-        return isset($fieldMap[$t]) ? $t : null;
+        return $field['name'] ?? null;
     };
 
     // ---- Header rows: usually 1, but support a STACKED (multi-row) header -----
@@ -334,13 +311,12 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $isSingleRow = count($bodyLines) === 1;
 
     // group (non-editable) repeats a single-row template once per saved row;
-    // singular / unset / multi-row matrices render once. Editable tables use the
-    // block-aware path below instead.
+
     $repeatRows   = $group && $isSingleRow;
     $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
 
     // Build a grid of body cells with their resolved column position and spans so
-    // both block detection and rendering agree on the geometry.
+
     $grid    = [];
     $covered = [];
     foreach ($bodyLines as $r => $line) {
@@ -368,11 +344,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
     }
     $numBodyRows = count($bodyLines);
 
-    // A body row is a "separator" (a full-width sub-header, e.g. a
-    // [Method precision|header|c2] divider) when NONE of its cells is backed by
-    // an input field. Separators render across the whole table, are never part
-    // of a repeatable block, and get no "+ Add Row" / delete control — they just
-    // break the data rows into independent groups.
+
     $rowIsSeparator = [];
     for ($r = 0; $r < $numBodyRows; $r++) {
         $hasInput = false;
@@ -385,9 +357,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $rowIsSeparator[$r] = !$hasInput;
     }
 
-    // Column geometry. The body can have MORE columns than the header row when a
-    // header cell spans several body columns. Use the widest of header vs. body so the
-    // <thead>, the data rows and the full-width separators/Add-Row all line up.
+
     $bodyCols = 0;
     foreach ($grid as $rowCells) {
         foreach ($rowCells as $c) {
@@ -395,9 +365,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         }
     }
 
-    // Build the header grid honoring colspan/rowspan across ALL header rows, so a
-    // grouping headerspans its columns and the sub-header row
-    // sits beneath it — matching the builder preview.
+
     $headerGrid = [];
     $headerCols = 0;
     $hCovered   = [];
@@ -451,13 +419,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
     };
 
     // ---- Editable: partition body rows into blocks bound together by rowspans ----
-    // A block is a maximal run of consecutive rows where no rowspan reaches past
-    // its end. Each block becomes one independently repeatable unit (its own
-    // "+ Add Row" button); cloning a block duplicates ALL of its rows so a
-    // spanning cell (e.g. a rowspan=3 cell over rows 1-3) is reproduced intact.
-    // $segments is the ordered render plan: separator rows and repeatable blocks
-    // interleaved in the order they appear, so a "Method precision" divider stays
-    // between its groups instead of being swallowed into one.
+
     $blocks      = [];
     $blockFields = [];
     $segments    = [];
@@ -509,10 +471,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
             $r = $end + 1;
         }
 
-        // Route each saved record to the block it belongs to so an edit-load
-        // repeats each block once per saved instance. The submit transpose fills
-        // EVERY field key (empty string outside the block), so match on a NON-EMPTY
-        // value — each saved instance only fills its own block's fields.
+
         $blockInstances = array_fill(0, count($blocks), []);
         foreach ($savedRows as $rec) {
             if (!is_array($rec)) {
@@ -529,7 +488,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         }
 
         // Total instances rendered = the starting point for the "Add Row" JS so
-        // cloned block instances get fresh, section-unique row indexes.
+\
         $totalInstances = 0;
         foreach ($blocks as $bi => $b) {
             $totalInstances += max(1, count($blockInstances[$bi]));
@@ -558,7 +517,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $html .= '</thead>';
 
     if ($editable) {
-        $rowIndex = 0; // section-unique index; one per block instance, shared by its rows
+        $rowIndex = 0; 
         foreach ($segments as $seg) {
             // --- Separator: a full-width static sub-header (no block, no Add Row) ---
             if ($seg['type'] === 'sep') {
@@ -636,10 +595,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         $fieldMap[$field['name']] = $field;
     }
 
-    // Inline fields can be written either way:
-    //   {field}            — classic builder (/forms/create)
-    //   [field]            — drag & drop builder (/forms/builder)
-    //   [field|label] etc. — modifiers; label/header render as static text
+     
     return preg_replace_callback('/\{([^}]+)\}|\[([^\]]+)\]/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
         // group 1 = {...}, group 2 = [...]
         $token = ($matches[1] ?? '') !== '' ? $matches[1] : ($matches[2] ?? '');
@@ -657,7 +613,14 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             return $renderTemplateInput($fieldMap[$fieldKey], $section, $values);
         }
 
-        // Unknown token -> leave it exactly as written
+
+        if (preg_match('/^[A-Za-z][\w-]*$/', $fieldKey)) {
+            $synthetic = ['name' => $fieldKey, 'label' => $fieldKey, 'type' => 'text', 'validation' => null, 'options' => null];
+
+            return $renderTemplateInput($synthetic, $section, $values);
+        }
+
+        // Anything else (incidental prose brackets) -> leave exactly as written.
         return $matches[0];
     }, $template);
 };
@@ -831,17 +794,12 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         }
 
-        // Re-point a cloned row's field names to a fresh row index, e.g.
-        // sections[5][qty][2] -> sections[5][qty][7]. Only the trailing [n] changes.
         function reindexRow(row, index) {
             row.querySelectorAll('[name]').forEach(function(el) {
                 el.name = el.name.replace(/\[\d+\]$/, '[' + index + ']');
             });
         }
 
-        // The body is partitioned into blocks (one <tbody class="rt-block"> each).
-        // A block is the repeatable unit: data-block-rows is how many template rows
-        // it spans, so a rowspan group (e.g. 3 rows) clones/deletes as one unit.
         function instanceRows(blockTbody) {
             // The last instance = the last data-block-rows .rt-row elements.
             var rows = Array.prototype.slice.call(blockTbody.querySelectorAll('.rt-row'));
