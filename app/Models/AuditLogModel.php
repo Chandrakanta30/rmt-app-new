@@ -87,4 +87,26 @@ class AuditLogModel extends Model
 
         return array_reverse($history);
     }
+    public function getUserAuditLogs(int $userId, int $limit = 50, int $offset = 0): array
+{
+    return $this->select('audit_logs.*, users.name as performed_by')
+        ->join('users', 'users.id = audit_logs.user_id', 'left')
+        ->where('audit_logs.entity_id', $userId)
+        ->where('audit_logs.module', 'user')
+        ->orderBy('audit_logs.created_at', 'DESC')
+        ->findAll($limit, $offset);
+}
+
+/**
+ * Count total audit logs for a specific user
+ * 
+ * @param int $userId
+ * @return int
+ */
+public function countUserAuditLogs(int $userId): int
+{
+    return $this->where('entity_id', $userId)
+        ->where('module', 'user')
+        ->countAllResults();
+}
 }

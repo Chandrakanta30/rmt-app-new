@@ -148,6 +148,39 @@
         color: #7a8a99;
         padding: 1.6rem 1rem;
     }
+
+    .icon-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid #e2e8f0;
+        border-radius: 9px;
+        background: #fbfdff;
+        color: #34495e;
+        font-size: 0.95rem;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .icon-action:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(15,23,42,0.1);
+    }
+
+    .icon-action.icon-view {
+        color: #1f6fb2;
+        border-color: rgba(31,111,178,0.25);
+        background: rgba(31,111,178,0.08);
+    }
+
+    .icon-action.icon-audit {
+        color: #153e5c;
+        border-color: rgba(21,62,92,0.25);
+        background: rgba(21,62,92,0.08);
+    }
 </style>
 
 <div class="page-shell">
@@ -214,8 +247,10 @@
                             </td>
                             <td>
                                 <div class="action-cell">
-                                    <a class="btn btn-primary" href="<?= base_url('form/' . $form['form_key'] . '?mode=view') ?>">View</a>
-                                    <a class="btn btn-secondary" href="<?= base_url('forms/logs/' . $form['id']) ?>">Audit log</a>
+                                    <a class="icon-action icon-view" title="View" aria-label="View"
+                                        href="<?= base_url('form/' . $form['form_key'] . '?mode=view') ?>">&#128065;</a>
+                                    <a class="icon-action icon-audit" title="Audit log" aria-label="Audit log"
+                                        href="<?= base_url('forms/logs/' . $form['id']) ?>">&#128337;</a>
                                 </div>
                             </td>
                         </tr>

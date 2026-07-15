@@ -53,6 +53,8 @@ $routes->group('users', ['filter' => 'permission:manage_users'], function($route
     $routes->get('edit/(:num)', [UserController::class, 'edit/$1']);
     $routes->post('update/(:num)', [UserController::class, 'update/$1']);
     $routes->get('delete/(:num)', [UserController::class, 'delete/$1']);
+        $routes->get('audit-log/(:num)', 'UserController::auditLog/$1');
+
 });
 
 $routes->group('roles', ['filter' => 'permission:manage_roles'], function($routes) {
@@ -62,6 +64,8 @@ $routes->group('roles', ['filter' => 'permission:manage_roles'], function($route
     $routes->get('edit/(:num)', [RoleController::class, 'edit/$1']);
     $routes->post('update/(:num)', [RoleController::class, 'update/$1']);
     $routes->get('delete/(:num)', [RoleController::class, 'delete/$1']);
+        $routes->get('audit-log/(:num)', 'RoleController::auditLog/$1'); // ADD THIS LINE
+
 });
 
 $routes->group('permissions', ['filter' => 'permission:manage_permissions'], function($routes) {
