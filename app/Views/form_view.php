@@ -488,7 +488,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         }
 
         // Total instances rendered = the starting point for the "Add Row" JS so
-\
+        // the client keeps numbering newly-added rows correctly.
         $totalInstances = 0;
         foreach ($blocks as $bi => $b) {
             $totalInstances += max(1, count($blockInstances[$bi]));
