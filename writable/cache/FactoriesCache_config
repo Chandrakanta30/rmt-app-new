@@ -39,7 +39,7 @@
       array (
         0 => 404,
       ),
-       'errorViewPath' => 'C:\\codig4formbuilder\\rmt-app-new\\app\\Views/errors',
+       'errorViewPath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\app\\Views/errors',
        'sensitiveDataInTrace' => 
       array (
       ),
@@ -111,7 +111,7 @@
        'reservedCharacters' => '{}()/\\@:',
        'file' => 
       array (
-        'storePath' => 'C:\\codig4formbuilder\\rmt-app-new\\writable\\cache/',
+        'storePath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\writable\\cache/',
         'mode' => 416,
       ),
        'memcached' => 
@@ -362,7 +362,7 @@
       ),
        'collectVarData' => true,
        'maxHistory' => 20,
-       'viewsPath' => 'C:\\codig4formbuilder\\rmt-app-new\\system\\Debug/Toolbar/Views/',
+       'viewsPath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\system\\Debug/Toolbar/Views/',
        'maxQueries' => 100,
        'watchedDirectories' => 
       array (
@@ -389,7 +389,7 @@
     \Config\Routing::__set_state(array(
        'routeFiles' => 
       array (
-        0 => 'C:\\codig4formbuilder\\rmt-app-new\\app\\Config/Routes.php',
+        0 => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\app\\Config/Routes.php',
       ),
        'defaultNamespace' => 'App\\Controllers',
        'defaultController' => 'Home',
@@ -455,7 +455,7 @@
     \Config\Routing::__set_state(array(
        'routeFiles' => 
       array (
-        0 => 'C:\\codig4formbuilder\\rmt-app-new\\app\\Config/Routes.php',
+        0 => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\app\\Config/Routes.php',
       ),
        'defaultNamespace' => 'App\\Controllers',
        'defaultController' => 'Home',
@@ -483,7 +483,7 @@
        'driver' => 'CodeIgniter\\Session\\Handlers\\FileHandler',
        'cookieName' => 'ci_session',
        'expiration' => 7200,
-       'savePath' => 'C:\\codig4formbuilder\\rmt-app-new\\writable\\session',
+       'savePath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\writable\\session',
        'matchIP' => false,
        'timeToUpdate' => 300,
        'regenerateDestroy' => false,
@@ -518,7 +518,7 @@
     )),
     'Config\\Database' => 
     \Config\Database::__set_state(array(
-       'filesPath' => 'C:\\codig4formbuilder\\rmt-app-new\\app\\Database\\',
+       'filesPath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\app\\Database\\',
        'defaultGroup' => 'default',
        'default' => 
       array (
@@ -526,7 +526,7 @@
         'hostname' => 'localhost',
         'username' => 'root',
         'password' => '',
-        'database' => 'formbuilder',
+        'database' => 'rmt_form_builder_local',
         'DBDriver' => 'MySQLi',
         'DBPrefix' => '',
         'pConnect' => false,
@@ -540,7 +540,7 @@
         'failover' => 
         array (
         ),
-        'port' => 3306,
+        'port' => 3307,
         'numberNative' => false,
         'foundRows' => false,
         'dateFormat' => 
@@ -570,7 +570,7 @@
         'failover' => 
         array (
         ),
-        'port' => 3306,
+        'port' => 3307,
         'foreignKeys' => true,
         'busyTimeout' => 1000,
         'synchronous' => NULL,
