@@ -22,11 +22,11 @@
     'routing' => 'Config\\routing',
     'Config\\routing' => 'Config\\routing',
     'Config\\Feature' => 'Config\\Feature',
-    'Routing' => 'Config\\Routing',
+    'Config\\Session' => 'Config\\Session',
     'Config\\Logger' => 'Config\\Logger',
     'Config\\View' => 'Config\\View',
+    'Routing' => 'Config\\Routing',
     'Config\\Security' => 'Config\\Security',
-    'Config\\Session' => 'Config\\Session',
     'Config\\Database' => 'Config\\Database',
   ),
   'instances' => 
@@ -38,7 +38,7 @@
       array (
         0 => 404,
       ),
-       'errorViewPath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\app\\Views/errors',
+       'errorViewPath' => '/Applications/MAMP/htdocs/code4/app/Views/errors',
        'sensitiveDataInTrace' => 
       array (
       ),
@@ -80,7 +80,7 @@
     )),
     'Config\\App' => 
     \Config\App::__set_state(array(
-       'baseURL' => 'http://localhost:8080/',
+       'baseURL' => 'http://localhost:8888/code4/public/index.php/',
        'allowedHostnames' => 
       array (
       ),
@@ -110,7 +110,7 @@
        'reservedCharacters' => '{}()/\\@:',
        'file' => 
       array (
-        'storePath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\writable\\cache/',
+        'storePath' => '/Applications/MAMP/htdocs/code4/writable/cache/',
         'mode' => 416,
       ),
        'memcached' => 
@@ -361,7 +361,7 @@
       ),
        'collectVarData' => true,
        'maxHistory' => 20,
-       'viewsPath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\system\\Debug/Toolbar/Views/',
+       'viewsPath' => '/Applications/MAMP/htdocs/code4/system/Debug/Toolbar/Views/',
        'maxQueries' => 100,
        'watchedDirectories' => 
       array (
@@ -388,7 +388,7 @@
     \Config\Routing::__set_state(array(
        'routeFiles' => 
       array (
-        0 => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\app\\Config/Routes.php',
+        0 => '/Applications/MAMP/htdocs/code4/app/Config/Routes.php',
       ),
        'defaultNamespace' => 'App\\Controllers',
        'defaultController' => 'Home',
@@ -454,7 +454,7 @@
     \Config\Routing::__set_state(array(
        'routeFiles' => 
       array (
-        0 => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\app\\Config/Routes.php',
+        0 => '/Applications/MAMP/htdocs/code4/app/Config/Routes.php',
       ),
        'defaultNamespace' => 'App\\Controllers',
        'defaultController' => 'Home',
@@ -476,6 +476,19 @@
        'oldFilterOrder' => false,
        'limitZeroAsAll' => true,
        'strictLocaleNegotiation' => false,
+    )),
+    'Config\\Session' => 
+    \Config\Session::__set_state(array(
+       'driver' => 'CodeIgniter\\Session\\Handlers\\FileHandler',
+       'cookieName' => 'ci_session',
+       'expiration' => 7200,
+       'savePath' => '/Applications/MAMP/htdocs/code4/writable/session',
+       'matchIP' => false,
+       'timeToUpdate' => 300,
+       'regenerateDestroy' => false,
+       'DBGroup' => NULL,
+       'lockRetryInterval' => 100000,
+       'lockMaxRetries' => 300,
     )),
     'Config\\Logger' => 
     \Config\Logger::__set_state(array(
@@ -595,30 +608,17 @@
        'regenerate' => true,
        'redirect' => false,
     )),
-    'Config\\Session' => 
-    \Config\Session::__set_state(array(
-       'driver' => 'CodeIgniter\\Session\\Handlers\\FileHandler',
-       'cookieName' => 'ci_session',
-       'expiration' => 7200,
-       'savePath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\writable\\session',
-       'matchIP' => false,
-       'timeToUpdate' => 300,
-       'regenerateDestroy' => false,
-       'DBGroup' => NULL,
-       'lockRetryInterval' => 100000,
-       'lockMaxRetries' => 300,
-    )),
     'Config\\Database' => 
     \Config\Database::__set_state(array(
-       'filesPath' => 'C:\\Users\\parth\\OneDrive\\Desktop\\rmt-app-new\\app\\Database\\',
+       'filesPath' => '/Applications/MAMP/htdocs/code4/app/Database/',
        'defaultGroup' => 'default',
        'default' => 
       array (
         'DSN' => '',
-        'hostname' => 'localhost',
-        'username' => 'root',
-        'password' => '',
-        'database' => 'rmt_form_builder_local',
+        'hostname' => '168.144.70.184',
+        'username' => 'chandra',
+        'password' => '8Wt8}dO09Ps(!',
+        'database' => 'rmt_form_builder',
         'DBDriver' => 'MySQLi',
         'DBPrefix' => '',
         'pConnect' => false,
@@ -632,7 +632,7 @@
         'failover' => 
         array (
         ),
-        'port' => 3307,
+        'port' => 3306,
         'numberNative' => false,
         'foundRows' => false,
         'dateFormat' => 
@@ -662,7 +662,7 @@
         'failover' => 
         array (
         ),
-        'port' => 3307,
+        'port' => 3306,
         'foreignKeys' => true,
         'busyTimeout' => 1000,
         'synchronous' => NULL,

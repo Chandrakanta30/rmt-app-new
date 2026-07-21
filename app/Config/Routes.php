@@ -34,6 +34,8 @@ $routes->post('form/status/(:num)', 'Form::updateStatus/$1', ['filter' => 'permi
 $routes->get('forms/logs/(:num)', 'Form::logs/$1', ['filter' => 'permission:view_forms']);
 
 $routes->post('form/submit', 'Form::submit', ['filter' => 'permission:submit_data']);
+$routes->post('form/section-review', 'Form::sectionReview', ['filter' => 'permission:submit_data']);
+$routes->post('form/section-decision', 'Form::sectionDecision', ['filter' => 'permission:view_forms']);
 
 // ASR No. routes
 $routes->group('asr-mapping', ['filter' => 'permission:create_asrno'], function($routes) {
