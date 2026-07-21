@@ -1,12 +1,11 @@
 <?= $this->extend('layouts/main_layout') ?>
 
-<?= $this->section('title') ?>Audit log<?= $this->endSection() ?>
+<?= $this->section('title') ?>Audit Log - <?= esc($form['name']) ?><?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
 <?php
 helper('workflow');
 
-// "13 Jul 2026 at 2:41 pm" reads better than a raw DATETIME in a history list.
 $human = static function (?string $ts): string {
     if (!$ts) {
         return '—';
@@ -17,102 +16,103 @@ $human = static function (?string $ts): string {
 <style>
     .status-badge {
         display: inline-block;
-        border-radius: 999px;
-        padding: 0.3rem 0.7rem;
-        font-size: 0.76rem;
+        border-radius: 8px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.78rem;
         font-weight: 700;
         white-space: nowrap;
+        border: 1px solid transparent;
     }
-    .status-badge.status-created                  { background: #eef2f7; color: #475569; }
-    .status-badge.status-pending_review           { background: #fff5e6; color: #b26a00; }
-    .status-badge.status-resubmitted_for_review   { background: #fff5e6; color: #b26a00; }
-    .status-badge.status-pending_approval         { background: #fff5e6; color: #b26a00; }
-    .status-badge.status-resubmitted_for_approval { background: #fff5e6; color: #b26a00; }
-    .status-badge.status-review_rejected          { background: #fdeeee; color: #b42318; }
-    .status-badge.status-approval_rejected        { background: #fdeeee; color: #b42318; }
-    .status-badge.status-review_completed         { background: #eef4ff; color: #1d4ed8; }
-    .status-badge.status-approved                 { background: #edf8f3; color: #15704e; }
+    .status-badge.status-created                  { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    .status-badge.status-pending_review           { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+    .status-badge.status-resubmitted_for_review   { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+    .status-badge.status-pending_approval         { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+    .status-badge.status-resubmitted_for_approval { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+    .status-badge.status-review_rejected          { background: #fff1f2; color: #e11d48; border-color: #fecdd3; }
+    .status-badge.status-approval_rejected        { background: #fff1f2; color: #e11d48; border-color: #fecdd3; }
+    .status-badge.status-review_completed         { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+    .status-badge.status-approved                 { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
 
     .history-card {
-        background: white;
-        border: 1px solid #dfe7ee;
-        border-radius: 8px;
-        box-shadow: 0 16px 40px rgba(15,23,42,0.06);
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.05);
         margin-bottom: 1.5rem;
         overflow: hidden;
     }
-    .history-card > h2 {
-        margin: 0;
-        padding: 0.95rem 1.2rem;
-        font-size: 0.95rem;
-        color: #12263a;
-        border-bottom: 1px solid #e6edf3;
-        background: #f7fafc;
-    }
 
-    /* seven columns don't fit a narrow window — let the table scroll, not the page */
-    .table-scroll { max-height: 600px; overflow: auto; }
+    .table-scroll { max-height: 600px; overflow: auto; -webkit-overflow-scrolling: touch; }
     .history-table { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 0.9rem; }
+    
+    .history-table thead tr {
+        background: #0f172a;
+        color: #f8fafc;
+    }
+    
     .history-table thead th {
         text-align: left;
-        padding: 1rem;
-        border-bottom: 2px solid #eef2f6;
-        background: #f8fafc;
+        padding: 1.05rem 1.25rem;
+        border-bottom: 1px solid #1e293b;
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #cbd5e1;
         position: sticky;
         top: 0;
+        z-index: 5;
     }
+    
     .history-table tbody td {
-        padding: 1rem;
-        border-bottom: 1px solid #eef2f6;
-        color: #28394b;
-        vertical-align: top;
+        padding: 1.05rem 1.25rem;
+        border-bottom: 1px solid #f1f5f9;
+        color: #334155;
+        vertical-align: middle;
     }
+    
     .history-table tbody tr:last-child td { border-bottom: none; }
+    .history-table tbody tr:hover { background: #f8fafc; }
 
-    .who { font-weight: 600; color: #12263a; }
-    .who small { display: block; font-weight: 500; color: #7a8a99; font-size: 0.76rem; }
-    .reason { color: #46596b; }
-    .reason.none { color: #a3b0bc; font-style: italic; }
-    .arrow { color: #9aa8b5; padding: 0 0.3rem; }
-    .empty-row td { text-align: center; color: #7a8a99; padding: 1.6rem 1rem; }
+    .who { font-weight: 700; color: #0f172a; }
+    .reason { color: #475569; }
+    .reason.none { color: #94a3b8; font-style: italic; }
+    .arrow { color: #94a3b8; padding: 0 0.4rem; font-weight: bold; }
 </style>
 
 <div class="page-shell">
-    <div class="page-heading">
+    <div class="page-heading d-flex justify-content-between align-items-center mb-4">
         <div>
-            <p class="eyebrow">Audit log</p>
-            <h1><?= esc($form['name']) ?></h1>
-            <p class="page-subtitle">Every status change and data save recorded for this form.</p>
+            <p class="eyebrow" style="color: #10b981; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;">Audit Trail</p>
+            <h1 style="font-size: 1.65rem; font-weight: 800; color: #0f172a;"><?= esc($form['name']) ?></h1>
+            <p class="page-subtitle" style="color: #64748b; font-size: 0.9rem;">Every status change and data save recorded for this form.</p>
         </div>
         <div>
-            <a class="btn btn-secondary" href="<?= base_url('forms') ?>">All forms</a>
+            <a class="btn btn-outline-secondary font-weight-600" style="border-radius: 10px; padding: 0.6rem 1.2rem;" href="<?= base_url('forms') ?>">← Back to All Forms</a>
         </div>
     </div>
 
-    <!-- Ownership + current state, then the trail of everything that got it here -->
     <div class="history-card">
-        <h2>Audit log</h2>
-
         <div class="table-scroll">
             <table class="history-table">
                 <thead>
                     <tr>
                         <th>Action</th>
-                        <th>Change</th>
-                        <th>Created by</th>
-                        <th>Created on</th>
-                        <th>Last updated by</th>
-                        <th>Last updated on</th>
-                        <th>Reason / comment</th>
+                        <th>Status Transition</th>
+                        <th>Created By</th>
+                        <th>Created On</th>
+                        <th>Last Updated By</th>
+                        <th>Last Updated On</th>
+                        <th>Reason / Comment</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($auditLogs)): ?>
-                        <tr class="empty-row"><td colspan="7">Nothing recorded for this form yet.</td></tr>
+                        <tr><td colspan="7" style="padding: 3rem; text-align: center; color: #94a3b8;">Nothing recorded for this form yet.</td></tr>
                     <?php else: ?>
                         <?php foreach ($auditLogs as $log): ?>
                             <tr>
-                                <td><?= esc(workflow_action($log['action'])['label'] ?? ucfirst(str_replace('_', ' ', $log['action']))) ?></td>
+                                <td style="font-weight: 700; color: #0f172a;"><?= esc(workflow_action($log['action'])['label'] ?? ucfirst(str_replace('_', ' ', $log['action']))) ?></td>
                                 <td>
                                     <?php if ($log['to_status']): ?>
                                         <span class="status-badge status-<?= esc($log['from_status']) ?>"><?= esc(workflow_status_label($log['from_status'])) ?></span>
@@ -123,9 +123,9 @@ $human = static function (?string $ts): string {
                                     <?php endif; ?>
                                 </td>
                                 <td><span class="who"><?= esc($log['created_by_name'] ?: '—') ?></span></td>
-                                <td><?= esc($human($log['created_on'])) ?></td>
+                                <td><span style="color: #64748b; font-size: 0.85rem;"><?= esc($human($log['created_on'])) ?></span></td>
                                 <td><span class="who"><?= esc($log['updated_by_name'] ?: 'Unknown user') ?></span></td>
-                                <td><?= esc($human($log['updated_on'])) ?></td>
+                                <td><span style="color: #64748b; font-size: 0.85rem;"><?= esc($human($log['updated_on'])) ?></span></td>
                                 <td>
                                     <?php if (!empty($log['remark'])): ?>
                                         <span class="reason"><?= esc($log['remark']) ?></span>
@@ -141,21 +141,15 @@ $human = static function (?string $ts): string {
         </div>
 
         <?php if ($pagination['totalPages'] > 1): ?>
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-top: 1px solid #eef2f6; font-size: 0.85rem; color: #607184;">
-                <span>Page <?= $pagination['page'] ?> of <?= $pagination['totalPages'] ?> (<?= $pagination['total'] ?> entries)</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.5rem; border-top: 1px solid #f1f5f9; font-size: 0.88rem; color: #64748b;">
+                <span>Page <?= $pagination['page'] ?> of <?= $pagination['totalPages'] ?> (<?= $pagination['total'] ?> total entries)</span>
                 <div style="display: flex; gap: 8px;">
                     <?php if ($pagination['page'] > 1): ?>
-                        <a class="btn btn-ghost" style="padding: 0.4rem 0.9rem; min-height: auto;"
-                            href="<?= base_url('forms/logs/' . $form['id']) ?>?page=<?= $pagination['page'] - 1 ?>">&larr; Previous</a>
-                    <?php else: ?>
-                        <span class="btn btn-ghost" style="padding: 0.4rem 0.9rem; min-height: auto; opacity: 0.5; pointer-events: none;">&larr; Previous</span>
+                        <a class="btn btn-sm btn-outline-secondary" href="<?= base_url('forms/logs/' . $form['id']) ?>?page=<?= $pagination['page'] - 1 ?>">&larr; Previous</a>
                     <?php endif; ?>
 
                     <?php if ($pagination['page'] < $pagination['totalPages']): ?>
-                        <a class="btn btn-ghost" style="padding: 0.4rem 0.9rem; min-height: auto;"
-                            href="<?= base_url('forms/logs/' . $form['id']) ?>?page=<?= $pagination['page'] + 1 ?>">Next &rarr;</a>
-                    <?php else: ?>
-                        <span class="btn btn-ghost" style="padding: 0.4rem 0.9rem; min-height: auto; opacity: 0.5; pointer-events: none;">Next &rarr;</span>
+                        <a class="btn btn-sm btn-outline-secondary" href="<?= base_url('forms/logs/' . $form['id']) ?>?page=<?= $pagination['page'] + 1 ?>">Next &rarr;</a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -163,3 +157,4 @@ $human = static function (?string $ts): string {
     </div>
 </div>
 <?= $this->endSection() ?>
+
