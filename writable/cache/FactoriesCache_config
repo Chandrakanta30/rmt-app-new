@@ -24,11 +24,10 @@
     'Config\\Feature' => 'Config\\Feature',
     'Config\\Session' => 'Config\\Session',
     'Config\\Logger' => 'Config\\Logger',
-    'Routing' => 'Config\\Routing',
-    'Config\\Database' => 'Config\\Database',
     'Config\\View' => 'Config\\View',
+    'Routing' => 'Config\\Routing',
     'Config\\Security' => 'Config\\Security',
-    'Config\\Validation' => 'Config\\Validation',
+    'Config\\Database' => 'Config\\Database',
   ),
   'instances' => 
   array (
@@ -39,7 +38,7 @@
       array (
         0 => 404,
       ),
-       'errorViewPath' => 'C:\\codig4formbuilder\\rmt-app-new\\app\\Views/errors',
+       'errorViewPath' => '/Applications/MAMP/htdocs/code4/app/Views/errors',
        'sensitiveDataInTrace' => 
       array (
       ),
@@ -81,7 +80,7 @@
     )),
     'Config\\App' => 
     \Config\App::__set_state(array(
-       'baseURL' => 'http://localhost:8080/',
+       'baseURL' => 'http://localhost:8888/code4/public/index.php/',
        'allowedHostnames' => 
       array (
       ),
@@ -111,7 +110,7 @@
        'reservedCharacters' => '{}()/\\@:',
        'file' => 
       array (
-        'storePath' => 'C:\\codig4formbuilder\\rmt-app-new\\writable\\cache/',
+        'storePath' => '/Applications/MAMP/htdocs/code4/writable/cache/',
         'mode' => 416,
       ),
        'memcached' => 
@@ -362,7 +361,7 @@
       ),
        'collectVarData' => true,
        'maxHistory' => 20,
-       'viewsPath' => 'C:\\codig4formbuilder\\rmt-app-new\\system\\Debug/Toolbar/Views/',
+       'viewsPath' => '/Applications/MAMP/htdocs/code4/system/Debug/Toolbar/Views/',
        'maxQueries' => 100,
        'watchedDirectories' => 
       array (
@@ -389,7 +388,7 @@
     \Config\Routing::__set_state(array(
        'routeFiles' => 
       array (
-        0 => 'C:\\codig4formbuilder\\rmt-app-new\\app\\Config/Routes.php',
+        0 => '/Applications/MAMP/htdocs/code4/app/Config/Routes.php',
       ),
        'defaultNamespace' => 'App\\Controllers',
        'defaultController' => 'Home',
@@ -455,7 +454,7 @@
     \Config\Routing::__set_state(array(
        'routeFiles' => 
       array (
-        0 => 'C:\\codig4formbuilder\\rmt-app-new\\app\\Config/Routes.php',
+        0 => '/Applications/MAMP/htdocs/code4/app/Config/Routes.php',
       ),
        'defaultNamespace' => 'App\\Controllers',
        'defaultController' => 'Home',
@@ -483,7 +482,7 @@
        'driver' => 'CodeIgniter\\Session\\Handlers\\FileHandler',
        'cookieName' => 'ci_session',
        'expiration' => 7200,
-       'savePath' => 'C:\\codig4formbuilder\\rmt-app-new\\writable\\session',
+       'savePath' => '/Applications/MAMP/htdocs/code4/writable/session',
        'matchIP' => false,
        'timeToUpdate' => 300,
        'regenerateDestroy' => false,
@@ -513,72 +512,6 @@
           'fileExtension' => '',
           'filePermissions' => 420,
           'path' => '',
-        ),
-      ),
-    )),
-    'Config\\Database' => 
-    \Config\Database::__set_state(array(
-       'filesPath' => 'C:\\codig4formbuilder\\rmt-app-new\\app\\Database\\',
-       'defaultGroup' => 'default',
-       'default' => 
-      array (
-        'DSN' => '',
-        'hostname' => 'localhost',
-        'username' => 'root',
-        'password' => '',
-        'database' => 'formbuilder',
-        'DBDriver' => 'MySQLi',
-        'DBPrefix' => '',
-        'pConnect' => false,
-        'DBDebug' => true,
-        'charset' => 'utf8mb4',
-        'DBCollat' => 'utf8mb4_general_ci',
-        'swapPre' => '',
-        'encrypt' => false,
-        'compress' => false,
-        'strictOn' => false,
-        'failover' => 
-        array (
-        ),
-        'port' => 3306,
-        'numberNative' => false,
-        'foundRows' => false,
-        'dateFormat' => 
-        array (
-          'date' => 'Y-m-d',
-          'datetime' => 'Y-m-d H:i:s',
-          'time' => 'H:i:s',
-        ),
-      ),
-       'tests' => 
-      array (
-        'DSN' => '',
-        'hostname' => '127.0.0.1',
-        'username' => '',
-        'password' => '',
-        'database' => ':memory:',
-        'DBDriver' => 'SQLite3',
-        'DBPrefix' => 'db_',
-        'pConnect' => false,
-        'DBDebug' => true,
-        'charset' => 'utf8',
-        'DBCollat' => '',
-        'swapPre' => '',
-        'encrypt' => false,
-        'compress' => false,
-        'strictOn' => true,
-        'failover' => 
-        array (
-        ),
-        'port' => 3306,
-        'foreignKeys' => true,
-        'busyTimeout' => 1000,
-        'synchronous' => NULL,
-        'dateFormat' => 
-        array (
-          'date' => 'Y-m-d',
-          'datetime' => 'Y-m-d H:i:s',
-          'time' => 'H:i:s',
         ),
       ),
     )),
@@ -675,19 +608,70 @@
        'regenerate' => true,
        'redirect' => false,
     )),
-    'Config\\Validation' => 
-    \Config\Validation::__set_state(array(
-       'ruleSets' => 
+    'Config\\Database' => 
+    \Config\Database::__set_state(array(
+       'filesPath' => '/Applications/MAMP/htdocs/code4/app/Database/',
+       'defaultGroup' => 'default',
+       'default' => 
       array (
-        0 => 'CodeIgniter\\Validation\\StrictRules\\Rules',
-        1 => 'CodeIgniter\\Validation\\StrictRules\\FormatRules',
-        2 => 'CodeIgniter\\Validation\\StrictRules\\FileRules',
-        3 => 'CodeIgniter\\Validation\\StrictRules\\CreditCardRules',
+        'DSN' => '',
+        'hostname' => '168.144.70.184',
+        'username' => 'chandra',
+        'password' => '8Wt8}dO09Ps(!',
+        'database' => 'rmt_form_builder',
+        'DBDriver' => 'MySQLi',
+        'DBPrefix' => '',
+        'pConnect' => false,
+        'DBDebug' => true,
+        'charset' => 'utf8mb4',
+        'DBCollat' => 'utf8mb4_general_ci',
+        'swapPre' => '',
+        'encrypt' => false,
+        'compress' => false,
+        'strictOn' => false,
+        'failover' => 
+        array (
+        ),
+        'port' => 3306,
+        'numberNative' => false,
+        'foundRows' => false,
+        'dateFormat' => 
+        array (
+          'date' => 'Y-m-d',
+          'datetime' => 'Y-m-d H:i:s',
+          'time' => 'H:i:s',
+        ),
       ),
-       'templates' => 
+       'tests' => 
       array (
-        'list' => 'CodeIgniter\\Validation\\Views\\list',
-        'single' => 'CodeIgniter\\Validation\\Views\\single',
+        'DSN' => '',
+        'hostname' => '127.0.0.1',
+        'username' => '',
+        'password' => '',
+        'database' => ':memory:',
+        'DBDriver' => 'SQLite3',
+        'DBPrefix' => 'db_',
+        'pConnect' => false,
+        'DBDebug' => true,
+        'charset' => 'utf8',
+        'DBCollat' => '',
+        'swapPre' => '',
+        'encrypt' => false,
+        'compress' => false,
+        'strictOn' => true,
+        'failover' => 
+        array (
+        ),
+        'port' => 3306,
+        'foreignKeys' => true,
+        'busyTimeout' => 1000,
+        'synchronous' => NULL,
+        'dateFormat' => 
+        array (
+          'date' => 'Y-m-d',
+          'datetime' => 'Y-m-d H:i:s',
+          'time' => 'H:i:s',
+        ),
       ),
     )),
   ),

@@ -48,7 +48,7 @@
             </div>
 
             <div style="display: flex; gap: 12px; margin-top: 2.5rem;">
-                <button type="submit" class="btn btn-success" style="flex: 1;">Create Role</button>
+                <button type="submit" class="btn btn-success" style="flex: 1;">Create</button>
                 <a href="<?= base_url('roles') ?>" class="btn btn-ghost" style="flex: 1; text-align: center;">Cancel</a>
             </div>
         </form>

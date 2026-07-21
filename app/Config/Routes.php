@@ -34,6 +34,8 @@ $routes->post('form/status/(:num)', 'Form::updateStatus/$1', ['filter' => 'permi
 $routes->get('forms/logs/(:num)', 'Form::logs/$1', ['filter' => 'permission:view_forms']);
 
 $routes->post('form/submit', 'Form::submit', ['filter' => 'permission:submit_data']);
+$routes->post('form/section-review', 'Form::sectionReview', ['filter' => 'permission:submit_data']);
+$routes->post('form/section-decision', 'Form::sectionDecision', ['filter' => 'permission:view_forms']);
 
 // ASR No. routes
 $routes->group('asr-mapping', ['filter' => 'permission:create_asrno'], function($routes) {
@@ -53,6 +55,8 @@ $routes->group('users', ['filter' => 'permission:manage_users'], function($route
     $routes->get('edit/(:num)', [UserController::class, 'edit/$1']);
     $routes->post('update/(:num)', [UserController::class, 'update/$1']);
     $routes->get('delete/(:num)', [UserController::class, 'delete/$1']);
+        $routes->get('audit-log/(:num)', 'UserController::auditLog/$1');
+
 });
 
 $routes->group('roles', ['filter' => 'permission:manage_roles'], function($routes) {
@@ -62,6 +66,8 @@ $routes->group('roles', ['filter' => 'permission:manage_roles'], function($route
     $routes->get('edit/(:num)', [RoleController::class, 'edit/$1']);
     $routes->post('update/(:num)', [RoleController::class, 'update/$1']);
     $routes->get('delete/(:num)', [RoleController::class, 'delete/$1']);
+        $routes->get('audit-log/(:num)', 'RoleController::auditLog/$1'); // ADD THIS LINE
+
 });
 
 $routes->group('permissions', ['filter' => 'permission:manage_permissions'], function($routes) {

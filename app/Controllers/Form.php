@@ -172,8 +172,10 @@ public function index($formKey = 'accuracyform')
 
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
-        // Check if form is approved for edit access
-        $canEdit = ($form['status'] === 'Approved');
+        // Check if form is approved for edit access.
+        // ASR-scoped entries are always editable — the form template's own
+        // approval workflow only gates direct (non-ASR) access to the form.
+        $canEdit = ($asr > 0) ? true : ($form['status'] === 'Approved');
         // $asrId = (int) ($request->getGet('asr_id') ?? 0);
         $asrId = $asr;
 
@@ -228,10 +230,107 @@ public function index($formKey = 'accuracyform')
             }
         }
 
+        // Build section metadata (table_name, created_at, created_by, reviewed_at, reviewed_by)
+        $sectionMetadata = [];
+        $reviewLog = $db->table('audit_logs a')
+            ->select('a.created_at, u.name as reviewer_name')
+            ->join('users u', 'u.id = a.user_id', 'left')
+            ->where('a.entity_id', $form['id'])
+            ->where('a.module', 'forms')
+            ->whereIn('a.action', ['approve', 'review', 'submit_review', 'accept'])
+            ->orderBy('a.id', 'DESC')
+            ->get()
+            ->getRowArray();
+
+        $formReviewer = $reviewLog['reviewer_name'] ?? null;
+        $formReviewedAt = $reviewLog['created_at'] ?? null;
+
+        foreach ($sections as $sec) {
+            $tableName = !empty($sec['table']) ? $sec['table'] : 'form_values';
+            $createdAt = null;
+            $createdBy = null;
+            $secReviewer = null;
+            $secReviewedAt = null;
+
+            $fvQuery = $db->table('form_values')->where('section_id', $sec['id']);
+            if ($asrId > 0) {
+                $fvQuery->where('asr_id', $asrId);
+            }
+            $fv = $fvQuery->orderBy('id', 'DESC')->get()->getRowArray();
+
+            if ($fv) {
+                if (!empty($fv['created_at'])) {
+                    $createdAt = $fv['created_at'];
+                }
+                if (!empty($fv['created_by'])) {
+                    $u = $db->table('users')->where('id', $fv['created_by'])->get()->getRowArray();
+                    $createdBy = $u['name'] ?? null;
+                }
+
+                // If created_at / created_by are not stored on form_values columns, look up audit_log strictly for this entity_id
+                if (!$createdAt || !$createdBy) {
+                    $log = $db->table('audit_logs a')
+                        ->select('a.created_at, u.name as user_name')
+                        ->join('users u', 'u.id = a.user_id', 'left')
+                        ->where('a.entity_id', $fv['id'])
+                        ->where('a.module', 'form_values')
+                        ->orderBy('a.id', 'DESC')
+                        ->get()
+                        ->getRowArray();
+
+                    if ($log) {
+                        if (!$createdAt) $createdAt = $log['created_at'];
+                        if (!$createdBy) $createdBy = $log['user_name'];
+                    }
+                }
+
+                // If form_values table has reviewed_by column:
+                if (array_key_exists('reviewed_by', $fv)) {
+                    if (!empty($fv['reviewed_by'])) {
+                        $u = $db->table('users')->where('id', $fv['reviewed_by'])->get()->getRowArray();
+                        $secReviewer = $u['name'] ?? null;
+                        $secReviewedAt = $fv['reviewed_at'] ?? null;
+                    }
+                } else {
+                    $secReviewer = $formReviewer;
+                    $secReviewedAt = $formReviewedAt;
+                }
+            }
+
+            if (!$createdAt && !empty($sec['table']) && in_array($sec['table'], $db->listTables(), true)) {
+                $dtQuery = $db->table($sec['table']);
+                if ($asrId > 0 && in_array('asr_no', $db->getFieldNames($sec['table']), true)) {
+                    $dtQuery->where('asr_no', $asrId);
+                }
+                $dt = $dtQuery->orderBy('id', 'DESC')->get()->getRowArray();
+                if ($dt) {
+                    $createdAt = $dt['created_at'] ?? null;
+                    if (!empty($dt['created_by'])) {
+                        $u = $db->table('users')->where('id', $dt['created_by'])->get()->getRowArray();
+                        $createdBy = $u['name'] ?? null;
+                    }
+                }
+            }
+
+            $secStatus = $fv['status'] ?? 'draft';
+            $secRejectionComment = $fv['rejection_comment'] ?? null;
+
+            $sectionMetadata[$sec['id']] = [
+                'table_name'        => $tableName,
+                'status'            => $secStatus,
+                'rejection_comment' => $secRejectionComment,
+                'created_at'        => $createdAt ? date('d-m-Y H:i', strtotime($createdAt)) : 'N/A',
+                'created_by'        => $createdBy ?: 'N/A',
+                'reviewed_at'       => $secReviewedAt ? date('d-m-Y H:i', strtotime($secReviewedAt)) : 'N/A',
+                'reviewed_by'       => $secReviewer ?: 'N/A',
+            ];
+        }
+
         return view('form_view', [
             'form' => $form,
             'sections' => $sections,
             'values' => $dataValues,
+            'sectionMetadata' => $sectionMetadata,
             'readonly' => $viewOnly || !$canEdit,
             'canEdit' => $canEdit,
             'asrId' => $asrId,
@@ -243,6 +342,7 @@ public function index($formKey = 'accuracyform')
         'form' => $form,
         'sections' => $sections,
         'values' => $dataValues,
+        'sectionMetadata' => $sectionMetadata ?? [],
         'breadcrumb' => $form['name'] ?? 'Form',
     ]);
 }
@@ -372,6 +472,9 @@ public function index($formKey = 'accuracyform')
                 // reflects the full current table (rows accumulate, no duplicates).
                 $currentFormId = $form_id[$sectionId] ?? null;
                 $currentAsrId = is_array($asrIds) ? (int) ($asrIds[$sectionId] ?? 0) : 0;
+                // Whether this save actually came from an ASR-opened page (hidden
+                // asr_id field present), as opposed to a direct form/template edit.
+                $isAsrSave = $currentAsrId > 0;
 
                 if ($currentAsrId <= 0 && $currentFormId) {
                     $asrMapping = $db->table('form_asr_mapping')
@@ -397,45 +500,110 @@ public function index($formKey = 'accuracyform')
                     }
                 }
 
+                $existingFvQuery = $db->table('form_values')->where('section_id', $sectionId);
+                if ($currentAsrId > 0) {
+                    $existingFvQuery->where('asr_id', $currentAsrId);
+                }
+                $existingFv = $existingFvQuery->orderBy('id', 'DESC')->get()->getRowArray();
+
+                $now = date('Y-m-d H:i:s');
+                $userId = session()->get('user_id');
+
+                $origCreatedAt  = $existingFv['created_at'] ?? null;
+                $origCreatedBy  = $existingFv['created_by'] ?? null;
+                $origReviewedAt = $existingFv['reviewed_at'] ?? null;
+                $origReviewedBy = $existingFv['reviewed_by'] ?? null;
+
                 $deleteQuery = $db->table('form_values')->where('section_id', $sectionId);
                 if ($currentAsrId > 0) {
                     $deleteQuery->where('asr_id', $currentAsrId);
                 }
                 $deleteQuery->delete();
 
-                $db->table('form_values')->insert([
+                $saveTypes = $request->getPost('save_type');
+                $saveType  = is_array($saveTypes) ? strtolower($saveTypes[$sectionId] ?? 'submit') : strtolower($saveTypes ?? 'submit');
+                $secStatus = ($saveType === 'draft') ? 'draft' : 'submitted';
+
+                $insertData = [
                     'asr_id'     => $currentAsrId > 0 ? $currentAsrId : null,
                     'form_id'    => $currentFormId,
                     'section_id' => $sectionId,
                     'values'     => json_encode($payload),
-                ]);
+                ];
 
-                // Audit log: record every form_values save.
+                $fvFields = $db->getFieldNames('form_values');
+
+                if (in_array('status', $fvFields, true)) {
+                    $insertData['status'] = $secStatus;
+                }
+                if (in_array('rejection_comment', $fvFields, true) && $secStatus === 'draft') {
+                    $insertData['rejection_comment'] = null;
+                }
+                if (in_array('created_at', $fvFields, true)) {
+                    $insertData['created_at'] = $origCreatedAt ?: $now;
+                }
+                if (in_array('created_by', $fvFields, true)) {
+                    $insertData['created_by'] = $origCreatedBy ?: $userId;
+                }
+                if (in_array('updated_at', $fvFields, true)) {
+                    $insertData['updated_at'] = $now;
+                }
+                if (in_array('updated_by', $fvFields, true)) {
+                    $insertData['updated_by'] = $userId;
+                }
+                if (in_array('reviewed_at', $fvFields, true) && !empty($origReviewedAt)) {
+                    $insertData['reviewed_at'] = $origReviewedAt;
+                }
+                if (in_array('reviewed_by', $fvFields, true) && !empty($origReviewedBy)) {
+                    $insertData['reviewed_by'] = $origReviewedBy;
+                }
+
+                $db->table('form_values')->insert($insertData);
+
+                // Audit log: one row per save, in whichever module matches how the
+                // save was triggered, always with the request payload and saved
+                // snapshot so either audit trail can decode and diff field-by-field.
                 $formValueId = $db->insertID();
                 $savedAt     = date('Y-m-d H:i:s');
                 $savedBy     = session()->get('user_id');
 
-                $db->table('audit_logs')->insert([
-                    'user_id'    => $savedBy,
-                    'action'     => 'save',
-                    'module'     => 'form_values',
-                    'entity_id'  => $formValueId,
-                    'remark'     => 'Saved form_values (form_id: ' . ($currentFormId ?? 'null')
-                        . ', section_id: ' . $sectionId . ')',
-                    'created_at' => $savedAt,
-                ]);
-
+                if ($isAsrSave) {
+                    // Saved via an ASR-opened form -> log under form_values only,
+                    // this is what the ASR audit log page reads.
+                    (new AuditLogModel())->record(
+                        'save',
+                        'form_values',
+                        $formValueId,
+                        'Saved form_values (form_id: ' . ($currentFormId ?? 'null')
+                            . ', section_id: ' . $sectionId . ')',
+                        [
+                            'asr_id'     => $currentAsrId,
+                            'section_id' => $sectionId,
+                            'form_id'    => $currentFormId,
+                        ],
+                        [
+                            'values' => $payload,
+                        ]
+                    );
+                } elseif ($currentFormId) {
+                    // Saved via a direct form/template edit (no ASR context) ->
+                    // log under forms only.
+                    (new AuditLogModel())->record(
+                        'save_data',
+                        'forms',
+                        (int) $currentFormId,
+                        'Saved data for section ' . $sectionId,
+                        [
+                            'section_id' => $sectionId,
+                            'form_id'    => $currentFormId,
+                        ],
+                        [
+                            'values' => $payload,
+                        ]
+                    );
+                }
 
                 if ($currentFormId) {
-                    $db->table('audit_logs')->insert([
-                        'user_id'    => $savedBy,
-                        'action'     => 'save_data',
-                        'module'     => 'forms',
-                        'entity_id'  => $currentFormId,
-                        'remark'     => 'Saved data for section ' . $sectionId,
-                        'created_at' => $savedAt,
-                    ]);
-
                     $db->table('forms')->where('id', $currentFormId)->update([
                         'updated_by' => $savedBy,
                         'updated_at' => $savedAt,
@@ -536,6 +704,18 @@ public function index($formKey = 'accuracyform')
             'updated_at' => $now,
         ]);
 
+        $fvFields = $db->getFieldNames('form_values');
+        $fvUpdate = [];
+        if (in_array('reviewed_at', $fvFields, true)) {
+            $fvUpdate['reviewed_at'] = $now;
+        }
+        if (in_array('reviewed_by', $fvFields, true)) {
+            $fvUpdate['reviewed_by'] = $userId;
+        }
+        if (!empty($fvUpdate)) {
+            $db->table('form_values')->where('form_id', $formId)->update($fvUpdate);
+        }
+
         // One row in audit_logs is the whole history
   
         $db->table('audit_logs')->insert([
@@ -615,10 +795,108 @@ public function index($formKey = 'accuracyform')
         // Newest first for display.
         $auditLogs = array_reverse($auditLogs);
 
+        $perPage = 10;
+        $totalLogs = count($auditLogs);
+        $totalPages = max(1, (int) ceil($totalLogs / $perPage));
+
+        $page = (int) (service('request')->getGet('page') ?? 1);
+        if ($page < 1) {
+            $page = 1;
+        } elseif ($page > $totalPages) {
+            $page = $totalPages;
+        }
+
+        $pagedAuditLogs = array_slice($auditLogs, ($page - 1) * $perPage, $perPage);
+
         return view('forms/logs', [
             'form'       => $form,
-            'auditLogs'  => $auditLogs,
+            'auditLogs'  => $pagedAuditLogs,
+            'pagination' => [
+                'page'       => $page,
+                'totalPages' => $totalPages,
+                'total'      => $totalLogs,
+                'perPage'    => $perPage,
+            ],
             'breadcrumb' => 'Audit log',
         ]);
     }
+
+    public function sectionReview()
+    {
+        $request = service('request');
+        $db      = \Config\Database::connect();
+
+        $sectionId = (int) $request->getPost('section_id');
+        $asrId     = (int) $request->getPost('asr_id');
+
+        if ($sectionId <= 0) {
+            return redirect()->back()->with('error', 'Invalid section ID.');
+        }
+
+        $fvQuery = $db->table('form_values')->where('section_id', $sectionId);
+        if ($asrId > 0) {
+            $fvQuery->where('asr_id', $asrId);
+        }
+
+        $db->transStart();
+        $fvQuery->update(['status' => 'under_review']);
+        $db->transComplete();
+
+        return redirect()->back()->with('success', 'Section submitted for review.');
+    }
+
+    public function sectionDecision()
+    {
+        $request  = service('request');
+        $db       = \Config\Database::connect();
+        $userId   = session()->get('user_id');
+        $now      = date('Y-m-d H:i:s');
+
+        $sectionId = (int) $request->getPost('section_id');
+        $asrId     = (int) $request->getPost('asr_id');
+        $decision  = strtolower((string) $request->getPost('decision'));
+        $comment   = trim((string) $request->getPost('comment'));
+
+        if ($sectionId <= 0 || !in_array($decision, ['accept', 'reject'], true)) {
+            return redirect()->back()->with('error', 'Invalid decision request.');
+        }
+
+        if ($decision === 'reject' && $comment === '') {
+            return redirect()->back()->with('error', 'A comment/reason is required to reject a section.');
+        }
+
+        $updateData = [
+            'reviewed_at' => $now,
+            'reviewed_by' => $userId,
+        ];
+
+        if ($decision === 'accept') {
+            $updateData['status'] = 'approved';
+            $msg = 'Section approved successfully.';
+        } else {
+            $updateData['status'] = 'rejected';
+            $updateData['rejection_comment'] = $comment;
+            $msg = 'Section rejected. Analyst can now edit and re-save as draft or submit.';
+        }
+
+        $fvQuery = $db->table('form_values')->where('section_id', $sectionId);
+        if ($asrId > 0) {
+            $fvQuery->where('asr_id', $asrId);
+        }
+
+        $db->transStart();
+        $fvQuery->update($updateData);
+
+        (new AuditLogModel())->record(
+            $decision === 'accept' ? 'approve_section' : 'reject_section',
+            'form_values',
+            $sectionId,
+            $decision === 'accept' ? 'Section approved' : 'Section rejected: ' . $comment,
+            ['section_id' => $sectionId, 'asr_id' => $asrId, 'decision' => $decision, 'comment' => $comment]
+        );
+        $db->transComplete();
+
+        return redirect()->back()->with('success', $msg);
+    }
 }
+
