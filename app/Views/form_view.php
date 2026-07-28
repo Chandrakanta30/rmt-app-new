@@ -777,14 +777,6 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     </svg>
                     View
                 </a>
-            <?php else: ?>
-                <a href="<?= site_url('form/' . $form['form_key']) ?>" class="btn btn-secondary">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 8l-4-4v8z"/>
-                        <path d="M4 4h8v8H4z"/>
-                    </svg>
-                    Edit
-                </a>
             <?php endif; ?>
         </div>
 
