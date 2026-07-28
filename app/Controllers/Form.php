@@ -692,8 +692,23 @@ public function index($formKey = 'accuracyform')
             return redirect()->back()->with('error', 'A reason is required to ' . lcfirst($action['label']) . '.');
         }
 
-        $newStatus = $action['to'];
         $userId    = session()->get('user_id');
+
+        if ($actionName === 'review_complete') {
+            $password = (string) $request->getPost('password');
+            if ($password === '') {
+                return redirect()->back()->with('error', 'Password is required to sign and approve.');
+            }
+
+            $userModel = new \App\Models\UserModel();
+            $user      = $userModel->find($userId);
+
+            if (!$user || !password_verify($password, $user['password'])) {
+                return redirect()->back()->with('error', 'Incorrect password. Review completion aborted.');
+            }
+        }
+
+        $newStatus = $action['to'];
         $now       = date('Y-m-d H:i:s');
 
         $db->transStart();

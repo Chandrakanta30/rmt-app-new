@@ -185,6 +185,17 @@
         </div>
     </div>
 
+    <?php if (session()->getFlashdata('success')): ?>
+        <div class="alert alert-success d-flex align-items-center gap-2 mb-3" style="border-radius: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 0.85rem 1.1rem;">
+            <span style="font-weight: 600;"><?= esc(session()->getFlashdata('success')) ?></span>
+        </div>
+    <?php endif; ?>
+    <?php if (session()->getFlashdata('error')): ?>
+        <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius: 12px; background: #fef2f2; border: 1px solid #fecdd3; color: #991b1b; padding: 0.85rem 1.1rem;">
+            <span style="font-weight: 600;"><?= esc(session()->getFlashdata('error')) ?></span>
+        </div>
+    <?php endif; ?>
+
     <?php if (empty($forms)): ?>
         <div class="empty-state" style="background: white; border-radius: 16px; padding: 3rem; text-align: center; border: 1px solid #e2e8f0;">
             <h2 style="color: #0f172a; font-weight: 800;">No forms found</h2>
