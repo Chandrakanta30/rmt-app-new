@@ -10,10 +10,10 @@
 
     .instrument-card {
         background: #ffffff;
-        border: 1px solid #dbe4ee;
-        border-radius: 22px;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
         overflow: hidden;
-        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+        box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.05);
     }
 
     .instrument-card__header {
@@ -22,34 +22,33 @@
         justify-content: space-between;
         gap: 1rem;
         padding: 1.1rem 1.5rem;
-        background: linear-gradient(180deg, #f4f8fc 0%, #eef3f9 100%);
-        border-bottom: 1px solid #dbe4ee;
-        color: #0f2742;
-        font-size: 1rem;
+        background: #0f172a;
+        border-bottom: 1px solid #1e293b;
+        color: #f8fafc;
+        font-size: 1.05rem;
         font-weight: 800;
         letter-spacing: 0.02em;
-        text-transform: uppercase;
     }
 
     .instrument-card__collapse {
-        width: 34px;
-        height: 34px;
+        width: 30px;
+        height: 30px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid transparent;
-        border-radius: 10px;
-        color: #42546a;
-        font-size: 1.3rem;
+        border-radius: 8px;
+        color: #cbd5e1;
+        background: #1e293b;
+        font-size: 1.2rem;
         line-height: 1;
     }
 
     .instrument-card__body {
-        padding: 1.5rem;
+        padding: 1.75rem;
     }
 
     .instrument-section {
-        margin-bottom: 1.35rem;
+        margin-bottom: 1.5rem;
     }
 
     .instrument-section:last-child {
@@ -58,23 +57,27 @@
 
     .instrument-section__title {
         margin-bottom: 0.9rem;
-        color: #0f2742;
-        font-size: 0.96rem;
+        color: #0f172a;
+        font-size: 1.05rem;
         font-weight: 800;
+        border-left: 4px solid #10b981;
+        padding-left: 0.75rem;
     }
 
     .instrument-table {
         width: 100%;
         border-collapse: collapse;
         table-layout: fixed;
-        border: 1px solid #dbe4ee;
+        border: 1px solid #e2e8f0;
         background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
     }
 
     .instrument-table th,
     .instrument-table td {
-        border-right: 1px solid #dbe4ee;
-        border-bottom: 1px solid #dbe4ee;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
         vertical-align: middle;
     }
 
@@ -92,104 +95,34 @@
         width: 30%;
         min-width: 260px;
         padding: 0.95rem 1rem;
-        background: #eef3ff;
-        color: #0f2742;
-        font-size: 0.92rem;
+        background: #f8fafc;
+        color: #0f172a;
+        font-size: 0.88rem;
         font-weight: 700;
         text-align: left;
     }
 
     .instrument-field {
-        padding: 0.72rem 0.8rem;
+        padding: 0.65rem 0.8rem;
         background: #fff;
     }
 
     .instrument-input {
         width: 100%;
-        min-height: 44px;
-        padding: 0.68rem 0.85rem;
-        border: 1px solid #c9d7e6;
-        border-radius: 16px;
+        min-height: 40px;
+        padding: 0.5rem 0.85rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
         background: #ffffff;
-        color: #12263a;
-        font-size: 0.92rem;
+        color: #0f172a;
+        font-size: 0.9rem;
         outline: none;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        transition: all 0.15s ease-in-out;
     }
 
     .instrument-input:focus {
-        border-color: #7ea6d8;
-        box-shadow: 0 0 0 3px rgba(126, 166, 216, 0.16);
-    }
-
-    .instrument-input::placeholder {
-        color: #8a98a8;
-    }
-
-    .instrument-grid-row {
-        width: 100%;
-    }
-
-    .instrument-grid-row td {
-        width: 25%;
-    }
-
-    .instrument-grid-row--wide td:first-child {
-        width: 30%;
-    }
-
-    .instrument-grid-row--wide td:last-child {
-        width: 70%;
-    }
-
-    .instrument-grid-row--single td:first-child {
-        width: 30%;
-    }
-
-    .instrument-grid-row--single td:last-child {
-        width: 70%;
-    }
-
-    @media (max-width: 980px) {
-        .instrument-card__body {
-            padding: 1rem;
-        }
-
-        .instrument-table,
-        .instrument-table tbody,
-        .instrument-table tr,
-        .instrument-table th,
-        .instrument-table td {
-            display: block;
-            width: 100%;
-        }
-
-        .instrument-table th,
-        .instrument-table td {
-            border-right: 0;
-        }
-
-        .instrument-table tr {
-            border-bottom: 1px solid #dbe4ee;
-        }
-
-        .instrument-table tr:last-child {
-            border-bottom: 0;
-        }
-
-        .instrument-label {
-            min-width: 0;
-            border-bottom: 0;
-        }
-
-        .instrument-field {
-            border-bottom: 1px solid #dbe4ee;
-        }
-
-        .instrument-grid-row--wide td:last-child,
-        .instrument-grid-row--single td:last-child {
-            width: 100%;
-        }
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
     }
 </style>
 <?= $this->endSection() ?>
@@ -206,7 +139,7 @@ $renderField = static function (array $field, array $values): string {
 
     return '<th class="instrument-label">' . esc($field['label'] ?? '') . '</th>'
         . '<td class="instrument-field" colspan="' . max(1, (int) ($field['span'] ?? 1)) . '">'
-        . '<input class="instrument-input" type="text" name="instrument[' . esc($name) . ']" value="' . esc($value) . '">'
+        . '<input class="instrument-input form-control" type="text" name="instrument[' . esc($name) . ']" value="' . esc($value) . '">'
         . '</td>';
 };
 ?>
@@ -215,7 +148,7 @@ $renderField = static function (array $field, array $values): string {
     <div class="instrument-card">
         <div class="instrument-card__header">
             <span>3. <?= esc($instrumentTitle) ?></span>
-            <span class="instrument-card__collapse" aria-hidden="true">-</span>
+            <span class="instrument-card__collapse" aria-hidden="true">&minus;</span>
         </div>
 
         <div class="instrument-card__body">
@@ -240,3 +173,4 @@ $renderField = static function (array $field, array $values): string {
     </div>
 </div>
 <?= $this->endSection() ?>
+

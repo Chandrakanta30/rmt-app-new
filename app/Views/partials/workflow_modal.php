@@ -65,6 +65,21 @@
         box-shadow: 0 0 0 3px rgba(40, 150, 114, 0.14);
         background: white;
     }
+    .wf-dialog input[type="password"] {
+        width: 100%;
+        padding: 0.6rem 0.7rem;
+        border: 1px solid #cbd7e2;
+        border-radius: 8px;
+        font: inherit;
+        font-size: 0.9rem;
+        background: #fbfdff;
+    }
+    .wf-dialog input[type="password"]:focus {
+        outline: none;
+        border-color: #289672;
+        box-shadow: 0 0 0 3px rgba(40, 150, 114, 0.14);
+        background: white;
+    }
     .wf-error { color: #b42318; font-size: 0.82rem; margin-top: 0.4rem; display: none; }
     .wf-dialog-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.1rem; }
 </style>
@@ -81,6 +96,12 @@
             <label for="wfRemark">Comment <span id="wfRemarkHint"></span></label>
             <textarea name="remark" id="wfRemark" placeholder="Add a note for the form history..."></textarea>
             <div class="wf-error" id="wfError">A reason is required to reject.</div>
+
+            <div id="wfPasswordGroup" style="display: none; margin-top: 1rem;">
+                <label for="wfPassword">Password <span style="color: #b42318;">(required)</span></label>
+                <input type="password" name="password" id="wfPassword" placeholder="Enter your password to sign..." autocomplete="current-password">
+                <div class="wf-error" id="wfPasswordError">Password is required to sign and approve.</div>
+            </div>
 
             <div class="wf-dialog-actions">
                 <button type="button" class="btn btn-secondary" id="wfCancel">Cancel</button>
@@ -101,6 +122,9 @@
         const hint     = document.getElementById('wfRemarkHint');
         const error    = document.getElementById('wfError');
         const confirm  = document.getElementById('wfConfirm');
+        const passwordGroup = document.getElementById('wfPasswordGroup');
+        const passwordInput = document.getElementById('wfPassword');
+        const passwordError = document.getElementById('wfPasswordError');
 
         if (!backdrop) return;
 
@@ -123,9 +147,28 @@
                 ? 'Explain what needs to change, so it can be corrected and resubmitted...'
                 : 'Add a note for the form history...';
             confirm.className = 'btn ' + (remarkRequired ? 'btn-danger' : 'btn-primary');
+            confirm.textContent = 'Confirm';
+
+            if (passwordGroup) {
+                if (d.wfAction === 'review_complete') {
+                    passwordGroup.style.display = 'block';
+                    passwordInput.value = '';
+                    passwordInput.setAttribute('required', 'required');
+                    confirm.textContent = 'Sign and Approve';
+                } else {
+                    passwordGroup.style.display = 'none';
+                    passwordInput.value = '';
+                    passwordInput.removeAttribute('required');
+                }
+            }
+            if (passwordError) passwordError.style.display = 'none';
 
             backdrop.setAttribute('open', '');
-            remark.focus();
+            if (d.wfAction === 'review_complete' && passwordInput) {
+                passwordInput.focus();
+            } else {
+                remark.focus();
+            }
         }
 
         function close() {
@@ -147,10 +190,25 @@
         });
 
         form.addEventListener('submit', function (e) {
+            let hasError = false;
             if (remarkRequired && remark.value.trim() === '') {
-                e.preventDefault();
+                hasError = true;
                 error.style.display = 'block';
                 remark.focus();
+            } else {
+                error.style.display = 'none';
+            }
+
+            if (actionIn.value === 'review_complete' && passwordInput && passwordInput.value.trim() === '') {
+                hasError = true;
+                if (passwordError) passwordError.style.display = 'block';
+                passwordInput.focus();
+            } else {
+                if (passwordError) passwordError.style.display = 'none';
+            }
+
+            if (hasError) {
+                e.preventDefault();
             }
         });
     })();

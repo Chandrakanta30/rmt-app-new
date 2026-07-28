@@ -82,7 +82,7 @@ $renderTemplateInput = static function (array $field, array $section, array $val
     if ($type === 'select') {
         $options = $parseFieldOptions($field['options'] ?? null);
 
-        $html = '<span class="template-field template-field--select"><select name="' . $name . '"' . $required . '>';
+        $html = '<span class="template-field template-field--select"><select class="form-select form-control" name="' . $name . '"' . $required . '>';
         $html .= '<option value="">-- Select --</option>';
         foreach ($options as $opt) {
             $selected = ($value !== '' && $value === $opt['value']) ? ' selected' : '';
@@ -98,18 +98,18 @@ $renderTemplateInput = static function (array $field, array $section, array $val
         $checked = ($value !== '' && $value !== '0') ? ' checked' : '';
 
         return '<span class="template-field template-field--checkbox">'
-            . '<input type="checkbox" value="1" name="' . $name . '"' . $checked . $required . '></span>';
+            . '<input type="checkbox" class="form-check-input" value="1" name="' . $name . '"' . $checked . $required . '></span>';
     }
 
     // --- TEXTAREA ---
     if ($type === 'textarea') {
-        return '<span class="template-field template-field--textarea"><textarea name="' . $name . '"' . $required . '>' . esc($value) . '</textarea></span>';
+        return '<span class="template-field template-field--textarea"><textarea class="form-control" name="' . $name . '"' . $required . '>' . esc($value) . '</textarea></span>';
     }
 
-    // --- MEASUREMENT --- free-form technical value: decimals, units, slashes,
+    // --- MEASUREMENT --- free-form technical value
     if ($type === 'measurement') {
         return '<span class="template-field template-field--measurement">(' . $label . ')'
-            . '<input type="text" inputmode="text" value="' . esc($value) . '" name="' . $name . '"' . $required . '></span>';
+            . '<input type="text" class="form-control" inputmode="text" value="' . esc($value) . '" name="' . $name . '"' . $required . '></span>';
     }
 
     // --- TEXT / NUMBER / EMAIL / DATE / etc. ---
@@ -132,7 +132,7 @@ $renderTemplateInput = static function (array $field, array $section, array $val
         }
     }
 
-    return '<span class="template-field">(' . $label . ')<input type="' . esc($type) . '" value="' . esc($value) . '" name="' . $name . '"' . $required . $numericAttrs . $specialValidation . '></span>';
+    return '<span class="template-field">(' . $label . ')<input type="' . esc($type) . '" class="form-control" value="' . esc($value) . '" name="' . $name . '"' . $required . $numericAttrs . $specialValidation . '></span>';
 };
 
 // Parses one CSV line respecting quoted fields
@@ -666,16 +666,44 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
                 <input type="hidden" name="table_name[<?= esc($section['id']) ?>]" value="<?= esc($form['table'] ?? 'form_values') ?>">
 
-                <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]" value="<?= esc($section['action_flag'] ?? '') ?>">
+                <?php 
+                $meta = ($sectionMetadata[$section['id']] ?? []); 
+                $secStatus = $meta['status'] ?? 'draft';
+                $rejectionComment = $meta['rejection_comment'] ?? null;
+                $isApproved = ($secStatus === 'approved');
+                ?>
 
-                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly ?? false) ? 'disabled' : '' ?>>
+                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly || $isApproved) ? 'disabled' : '' ?>>
                 <div class="section-panel-header">
                     <div>
                         <span class="section-kicker">Section <?= $index + 1 ?></span>
                         <h2><?= esc($section['title']) ?></h2>
                     </div>
-                    <span class="section-count"><?= count($section['fields']) ?> fields</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <?php if ($secStatus === 'submitted'): ?>
+                            <span class="badge bg-info text-dark" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;">Saved / Submitted</span>
+                        <?php elseif ($secStatus === 'under_review'): ?>
+                            <span class="badge bg-warning text-dark" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;">Under Review</span>
+                        <?php elseif ($secStatus === 'rejected'): ?>
+                            <span class="badge bg-danger" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;">Rejected</span>
+                        <?php elseif ($secStatus === 'approved'): ?>
+                            <span class="badge bg-success" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;">Approved</span>
+                        <?php else: ?>
+                            <span class="badge bg-secondary" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;">Draft</span>
+                        <?php endif; ?>
+                        <span class="section-count"><?= count($section['fields']) ?> fields</span>
+                    </div>
                 </div>
+
+                <?php if ($secStatus === 'rejected' && !empty($rejectionComment)): ?>
+                    <div class="alert alert-danger d-flex align-items-start gap-2 mb-3 mt-2" style="border-radius: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #b91c1c;">
+                        <div style="font-size: 1.2rem; line-height: 1;">⚠️</div>
+                        <div>
+                            <strong>Rejection Reason:</strong> <?= esc($rejectionComment) ?>
+                            <div class="small mt-1 text-muted">Please update the field values below and click <em>Save as Draft</em> or <em>Save</em> to re-submit.</div>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <?php if ($viewMode): ?>
                     <div class="view-mode-overlay">
@@ -684,20 +712,20 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 <?php endif; ?>
 
                 <?php if ($layout === 'inline'): ?>
-                    <div class="inline-template <?= $viewMode ? 'read-only' : '' ?>">
+                    <div class="inline-template <?= ($viewMode || $isApproved) ? 'read-only' : '' ?>">
                         <?php
                         echo nl2br($renderSectionTemplate($section['inline_template'] ?? '', $section, $values));
                         ?>
                     </div>
                 <?php elseif (in_array($layout, ['tabular', 'table'], true)): ?>
-                    <div class="table-template <?= $viewMode ? 'read-only' : '' ?>">
+                    <div class="table-template <?= ($viewMode || $isApproved) ? 'read-only' : '' ?>">
                         <?php
                         $template = $section['table_template'] ?? $section['inline_template'] ?? '';
                         echo $renderTableTemplate($template, $section, $values);
                         ?>
                     </div>
                 <?php else: ?>
-                    <div class="field-grid <?= $viewMode ? 'read-only' : '' ?>">
+                    <div class="field-grid <?= ($viewMode || $isApproved) ? 'read-only' : '' ?>">
                         <?php foreach ($section['fields'] as $field): ?>
                             <?php
                             $validation = json_decode($field['validation'] ?? 'null', true) ?? [];
@@ -708,21 +736,76 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                                 <span><?= esc($field['label']) ?></span>
                                 <input
                                     type="<?= esc($field['type']) ?>"
+                                    class="form-control"
                                     name="sections[<?= esc($section['id']) ?>][<?= esc($field['name']) ?>]"
                                     value="<?= esc($value) ?>"
                                     <?= !empty($validation['required']) ? 'required' : '' ?>
                                     <?= $specialCharAttrs($field) ?>
-                                    <?= $viewMode ? 'readonly disabled' : '' ?>>
+                                    <?= ($viewMode || $isApproved) ? 'readonly disabled' : '' ?>>
                             </label>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
 
                 <?php if (!$viewMode && !($readonly ?? false)): ?>
-                    <div class="section-actions">
-                        <button class="btn btn-primary" type="submit">Save section</button>
+                    <div class="section-actions d-flex gap-2 justify-content-end align-items-center mt-3 pt-3 border-top">
+                        <?php if ($secStatus === 'draft' || $secStatus === 'rejected' || empty($secStatus)): ?>
+                            <!-- PART 1: BEGINNING -> Save as Draft & Save -->
+                            <button class="btn btn-outline-secondary px-3 font-weight-600" type="submit" name="save_type[<?= $section['id'] ?>]" value="draft">
+                                💾 Save as Draft
+                            </button>
+                            <button class="btn btn-primary px-4 font-weight-600" type="submit" name="save_type[<?= $section['id'] ?>]" value="submit">
+                                ✔ Save
+                            </button>
+                        <?php elseif ($secStatus === 'submitted'): ?>
+                            <!-- PART 2: AFTER SAVE -> Draft hidden. Review option visible -->
+                            <button type="submit" class="btn btn-warning px-4 font-weight-600 text-dark" formaction="<?= site_url('form/section-review') ?>">
+                                📩 Submit for Review
+                            </button>
+                            <input type="hidden" name="section_id" value="<?= $section['id'] ?>">
+                            <input type="hidden" name="asr_id" value="<?= $asrId ?>">
+                        <?php elseif ($secStatus === 'under_review'): ?>
+                            <!-- PART 3: WHILE REVIEW -> Save and Review hidden. Accept and Reject options -->
+                            <button type="button" class="btn btn-success px-4 font-weight-600" onclick="handleSectionDecision(<?= $section['id'] ?>, <?= $asrId ?>, 'accept')">
+                                ✅ Accept
+                            </button>
+                            <button type="button" class="btn btn-danger px-4 font-weight-600" onclick="handleSectionDecision(<?= $section['id'] ?>, <?= $asrId ?>, 'reject')">
+                                ❌ Reject
+                            </button>
+                        <?php elseif ($secStatus === 'approved'): ?>
+                            <!-- PART 4: ON APPROVE -> All buttons hidden -->
+                            <span class="badge bg-success px-3 py-2" style="font-size: 0.85rem;">✓ Approved (View Only)</span>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
+
+                <!-- Section Metadata Footer -->
+
+                <?php $meta = ($sectionMetadata[$section['id']] ?? []); ?>
+                <div class="section-meta-footer" style="margin-top: 1.5rem; padding: 1rem 1.25rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.82rem; color: #475569; box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8);">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.85rem 1.25rem; align-items: center;">
+                        <div>
+                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">🗄️ Table Name</span>
+                            <code style="background: #0f172a; padding: 3px 8px; border-radius: 6px; color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 600; display: inline-block; border: 1px solid rgba(56, 189, 248, 0.2);"><?= esc($meta['table_name'] ?? ($section['table'] ?: 'form_values')) ?></code>
+                        </div>
+                        <div>
+                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">📅 Created At</span>
+                            <span style="color: #334155; font-weight: 600;"><?= esc($meta['created_at'] ?? 'N/A') ?></span>
+                        </div>
+                        <div>
+                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">👤 Created By</span>
+                            <span style="color: #334155; font-weight: 600;"><?= esc($meta['created_by'] ?? 'N/A') ?></span>
+                        </div>
+                        <div>
+                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">📋 Reviewed At</span>
+                            <span style="color: #334155; font-weight: 600;"><?= esc($meta['reviewed_at'] ?? 'N/A') ?></span>
+                        </div>
+                        <div>
+                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">✓ Reviewed By</span>
+                            <span style="color: #334155; font-weight: 600;"><?= esc($meta['reviewed_by'] ?? 'N/A') ?></span>
+                        </div>
+                    </div>
+                </div>
                 </fieldset>
             </form>
         <?php endforeach; ?>
@@ -1198,4 +1281,61 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         }
     }
 </style>
+
+<script>
+function handleSectionDecision(sectionId, asrId, decision) {
+    if (decision === 'reject') {
+        const comment = prompt('Please enter the reason/comment for rejecting this section:');
+        if (comment === null) return;
+        if (comment.trim() === '') {
+            alert('A reason/comment is required to reject a section.');
+            return;
+        }
+        submitDecisionForm(sectionId, asrId, 'reject', comment.trim());
+    } else {
+        if (confirm('Are you sure you want to ACCEPT and approve this section?')) {
+            submitDecisionForm(sectionId, asrId, 'accept', '');
+        }
+    }
+}
+
+function submitDecisionForm(sectionId, asrId, decision, comment) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '<?= site_url("form/section-decision") ?>';
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '<?= csrf_token() ?>';
+    csrfInput.value = '<?= csrf_hash() ?>';
+    form.appendChild(csrfInput);
+
+    const secInput = document.createElement('input');
+    secInput.type = 'hidden';
+    secInput.name = 'section_id';
+    secInput.value = sectionId;
+    form.appendChild(secInput);
+
+    const asrInput = document.createElement('input');
+    asrInput.type = 'hidden';
+    asrInput.name = 'asr_id';
+    asrInput.value = asrId;
+    form.appendChild(asrInput);
+
+    const decInput = document.createElement('input');
+    decInput.type = 'hidden';
+    decInput.name = 'decision';
+    decInput.value = decision;
+    form.appendChild(decInput);
+
+    const commInput = document.createElement('input');
+    commInput.type = 'hidden';
+    commInput.name = 'comment';
+    commInput.value = comment;
+    form.appendChild(commInput);
+
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
 <?= $this->endSection() ?>
