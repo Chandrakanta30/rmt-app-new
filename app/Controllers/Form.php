@@ -694,18 +694,22 @@ public function index($formKey = 'accuracyform')
 
         $userId    = session()->get('user_id');
 
-        if ($actionName === 'review_complete') {
-            $password = (string) $request->getPost('password');
-            if ($password === '') {
-                return redirect()->back()->with('error', 'Password is required to sign and approve.');
-            }
+        $password = (string) $request->getPost('password');
+        if ($password === '') {
+            return redirect()->back()->with(
+                'error',
+                'Password is required to sign and ' . lcfirst($action['label']) . '.'
+            );
+        }
 
-            $userModel = new \App\Models\UserModel();
-            $user      = $userModel->find($userId);
+        $userModel = new \App\Models\UserModel();
+        $user      = $userModel->find($userId);
 
-            if (!$user || !password_verify($password, $user['password'])) {
-                return redirect()->back()->with('error', 'Incorrect password. Review completion aborted.');
-            }
+        if (!$user || !password_verify($password, $user['password'])) {
+            return redirect()->back()->with(
+                'error',
+                'Incorrect password. ' . $action['label'] . ' for "' . $form['name'] . '" was aborted.'
+            );
         }
 
         $newStatus = $action['to'];
