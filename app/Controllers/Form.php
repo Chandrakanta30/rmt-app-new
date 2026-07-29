@@ -365,6 +365,16 @@ public function index($formKey = 'accuracyform')
             return redirect()->back()->with('error', 'No data submitted');
         }
 
+        $isAsrSubmission = is_array($asrIds)
+            && count(array_filter($asrIds, static fn($id): bool => (int) $id > 0)) > 0;
+
+        if ($isAsrSubmission) {
+            $signatureError = $this->validateAsrSignature((string) $request->getPost('password'));
+            if ($signatureError !== null) {
+                return redirect()->back()->withInput()->with('error', $signatureError);
+            }
+        }
+
         $specialCharPattern = '/[^A-Za-z0-9\s]/';
 
         $normalizeCheckboxes = static function (array $row, array $checkboxFields): array {
@@ -848,6 +858,13 @@ public function index($formKey = 'accuracyform')
             return redirect()->back()->with('error', 'Invalid section ID.');
         }
 
+        if ($asrId > 0) {
+            $signatureError = $this->validateAsrSignature((string) $request->getPost('password'));
+            if ($signatureError !== null) {
+                return redirect()->back()->with('error', $signatureError);
+            }
+        }
+
         $fvQuery = $db->table('form_values')->where('section_id', $sectionId);
         if ($asrId > 0) {
             $fvQuery->where('asr_id', $asrId);
@@ -855,6 +872,14 @@ public function index($formKey = 'accuracyform')
 
         $db->transStart();
         $fvQuery->update(['status' => 'under_review']);
+
+        (new AuditLogModel())->record(
+            'submit_section_review',
+            'form_values',
+            $sectionId,
+            'Section submitted for review with signature confirmation',
+            ['section_id' => $sectionId, 'asr_id' => $asrId]
+        );
         $db->transComplete();
 
         return redirect()->back()->with('success', 'Section submitted for review.');
@@ -878,6 +903,13 @@ public function index($formKey = 'accuracyform')
 
         if ($decision === 'reject' && $comment === '') {
             return redirect()->back()->with('error', 'A comment/reason is required to reject a section.');
+        }
+
+        if ($asrId > 0) {
+            $signatureError = $this->validateAsrSignature((string) $request->getPost('password'));
+            if ($signatureError !== null) {
+                return redirect()->back()->with('error', $signatureError);
+            }
         }
 
         $updateData = [
@@ -912,6 +944,22 @@ public function index($formKey = 'accuracyform')
         $db->transComplete();
 
         return redirect()->back()->with('success', $msg);
+    }
+
+    private function validateAsrSignature(string $password): ?string
+    {
+        if ($password === '') {
+            return 'Password is required to sign this ASR action.';
+        }
+
+        $userId = session()->get('user_id');
+        $user   = (new \App\Models\UserModel())->find($userId);
+
+        if (!$user || !password_verify($password, $user['password'])) {
+            return 'Incorrect password. ASR action was aborted.';
+        }
+
+        return null;
     }
 }
 
