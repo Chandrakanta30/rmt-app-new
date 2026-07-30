@@ -344,6 +344,9 @@ public function index($formKey = 'accuracyform')
         'values' => $dataValues,
         'sectionMetadata' => $sectionMetadata ?? [],
         'breadcrumb' => $form['name'] ?? 'Form',
+        'readonly'=>false,
+        'canEdit' => true,
+        'asrId' => $asr
     ]);
 }
     public function submit()
