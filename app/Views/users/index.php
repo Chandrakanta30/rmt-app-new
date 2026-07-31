@@ -259,6 +259,62 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
         gap: 0.75rem;
         background: #ffffff;
     }
+
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.65);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+        z-index: 6000;
+    }
+
+    .modal-card {
+        background: #ffffff;
+        width: 100%;
+        max-width: 480px;
+        margin: 0 1rem;
+        border-radius: 18px;
+        padding: 1.75rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 1.3rem;
+        font-weight: 800;
+    }
+
+    .modal-close {
+        border: none;
+        background: #f1f5f9;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        font-size: 1.2rem;
+        cursor: pointer;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .modal-close:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
 </style>
 
 <div class="users-page">
@@ -268,10 +324,10 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
             <h2>Users Directory</h2>
             <p>Create, track, and manage user accounts with role-based permissions.</p>
         </div>
-        <a href="<?= base_url('users/create') ?>" class="btn-create">
+        <button type="button" class="btn-create" onclick="document.getElementById('userCreateModal').style.display='flex'">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
             Create New User
-        </a>
+        </button>
     </div>
 
     <?php if(session()->getFlashdata('success')): ?>
@@ -395,6 +451,68 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
                 </div>
             </div>
         <?php endif; ?>
+    </div>
+</div>
+
+<div id="userCreateModal" class="modal-overlay" style="display: <?= session()->getFlashdata('errors') ? 'flex' : 'none' ?>;">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Create User</h3>
+            <button type="button" class="modal-close"
+                onclick="document.getElementById('userCreateModal').style.display='none'">&times;</button>
+        </div>
+
+        <?php if(session()->getFlashdata('errors')): ?>
+            <div class="alert alert-danger mb-3" style="border-radius: 10px; padding: 0.75rem 1rem;">
+                <ul style="margin: 0; padding-left: 1.25rem;">
+                    <?php foreach(session()->getFlashdata('errors') as $error): ?>
+                        <li><?= esc($error) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <?php if(session()->getFlashdata('error')): ?>
+            <div class="alert alert-danger mb-3" style="border-radius: 10px; padding: 0.75rem 1rem;">
+                <?= session()->getFlashdata('error') ?>
+            </div>
+        <?php endif; ?>
+
+        <form action="<?= base_url('users/store') ?>" method="POST">
+            <?= csrf_field() ?>
+
+            <div class="form-group mb-3">
+                <label for="name" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">Name</label>
+                <input type="text" id="name" name="name" class="form-control" value="<?= old('name') ?>" required placeholder="Enter full name">
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="email" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">Email</label>
+                <input type="email" id="email" name="email" class="form-control" value="<?= old('email') ?>" required placeholder="Enter email address">
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="Enter login password (min 6 characters)">
+
+            <div class="form-group mb-4">
+                <label for="role_id">Role</label>
+                <select id="role_id" name="role_id">
+                    <option value="">Select Role</option>
+                    <?php foreach($roles as $role): ?>
+                        <option value="<?= $role['id'] ?>" <?= old('role_id') == $role['id'] ? 'selected' : '' ?>>
+                            <?= esc($role['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button type="submit" class="btn btn-success" style="flex: 1;">Create</button>
+                <button type="button" class="btn btn-light" style="flex: 1; border: 1px solid #cbd5e1;"
+                    onclick="document.getElementById('userCreateModal').style.display='none'">Cancel</button>
+            </div>
+        </form>
     </div>
 </div>
 <?= $this->endSection() ?>
