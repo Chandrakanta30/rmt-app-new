@@ -501,7 +501,6 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: #cbd5e1;
             border-bottom: 1px solid #1e293b;
         }
 

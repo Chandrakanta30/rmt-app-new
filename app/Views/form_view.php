@@ -229,11 +229,16 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $rowSpan = 1;
         $trimmed = trim($raw);
 
-        if (preg_match('/^\[(.+)\]$/', $trimmed, $m)) {
-            foreach (array_map('trim', explode('|', $m[1])) as $part) {
-                if (preg_match('/^c(\d+)$/i', $part, $cm)) {
+        if (preg_match('/^\[(.+)\]$/', $trimmed, $m))
+        {
+            foreach (array_map('trim', explode('|', $m[1])) as $part) 
+            {
+                if (preg_match('/^c(\d+)$/i', $part, $cm))
+                {
                     $colSpan = max(1, min(12, (int) $cm[1]));
-                } elseif (preg_match('/^r(\d+)$/i', $part, $rm)) {
+                } 
+                elseif (preg_match('/^r(\d+)$/i', $part, $rm))
+                {
                     $rowSpan = max(1, min(50, (int) $rm[1]));
                 }
             }
@@ -690,7 +695,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
-
+                <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]"value="<?= esc($section['action_flag'] ?? '') ?>">
                 <?php if (!empty($asrId)): ?>
                     <input type="hidden" name="asr_id[<?= esc($section['id']) ?>]" value="<?= esc($asrId) ?>">
                 <?php endif; ?>

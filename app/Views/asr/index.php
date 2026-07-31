@@ -378,7 +378,44 @@ $canViewAuditLog = has_permission('view_audit_log');
             <span style="font-weight: 600;"><?= session()->getFlashdata('action_error') ?></span>
         </div>
     <?php endif; ?>
+        <?php
+$creators = [];
 
+foreach ($asrList as $asr) {
+    $creator = trim($asr['created_by_name'] ?? '');
+
+    if ($creator !== '') {
+        $creators[$creator] = $creator;
+    }
+}
+
+natcasesort($creators);
+?>
+
+<div class="d-flex gap-3 mb-3">
+    <div style="flex: 1;">
+        <label for="asrSearch" class="form-label">Search ASR mappings</label>
+
+        <input type="search"
+               id="asrSearch"
+               class="form-control"
+               placeholder="Search by ASR number or form name...">
+    </div>
+
+    <div style="width: 250px;">
+        <label for="creatorFilter" class="form-label">Created By</label>
+
+        <select id="creatorFilter" class="form-select">
+            <option value="">All creators</option>
+
+            <?php foreach ($creators as $creator): ?>
+                <option value="<?= esc(strtolower($creator), 'attr') ?>">
+                    <?= esc($creator) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+</div>
     <div class="asr-table-card">
         <div class="asr-table-scroll">
             <table class="asr-table">
@@ -412,10 +449,12 @@ $canViewAuditLog = has_permission('view_audit_log');
                     <?php else: ?>
                         <?php $asrSlNo = 1; ?>
                         <?php foreach ($asrList as $asr): ?>
-                            <tr>
-                                <td>
-                                    <span class="asr-sl-no"><?= $asrSlNo++ ?></span>
-                                </td>
+                           <tr data-asr-row
+                        data-search="<?= esc(strtolower(($asr['asr_no'] ?? '') . ' ' .($asr['form_name'] ?? '')), 'attr') ?>"
+                        data-created-by="<?= esc(strtolower($asr['created_by_name'] ?? ''),'attr') ?>">
+    <td>
+        <span class="asr-sl-no"><?= $asrSlNo++ ?></span>
+    </td>
                                 <td>
                                     <span class="asr-no-badge">
                                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path></svg>
@@ -518,13 +557,18 @@ $canViewAuditLog = has_permission('view_audit_log');
 
             <div class="form-group mb-4">
                 <label for="form_id" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">Form</label>
-                <select id="form_id" name="form_id" class="form-select" required>
-                    <option value="">Select Approved Form</option>
-                    <?php foreach ($approvedForms as $form): ?>
-                        <option value="<?= $form['id'] ?>" <?= old('form_id') == $form['id'] ? 'selected' : '' ?>>
-                            <?= esc($form['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <input type="text"
+       id="form_search"
+       class="form-control mb-2"
+       placeholder="Search approved forms...">
+        <select id="form_id" name="form_id" class="form-select" required>
+    <?php foreach ($approvedForms as $form): ?>
+        <option value="<?= $form['id'] ?>"
+            <?= old('form_id') == $form['id'] ? 'selected' : '' ?>>
+            <?= esc($form['name']) ?>
+        </option>
+    <?php endforeach; ?>
+</select>
                 <?php if (empty($approvedForms)): ?>
                     <small style="color:#e11d48; margin-top:0.35rem; display:block;">No approved forms available yet.</small>
                 <?php endif; ?>
@@ -648,5 +692,67 @@ $canViewAuditLog = has_permission('view_audit_log');
     function closeAsrEditModal() {
         document.getElementById('asrEditModal').style.display = 'none';
     }
+</script>
+<script>
+    const searchInput = document.getElementById('form_search');
+    const formSelect = document.getElementById('form_id');
+
+    const originalOptions = Array.from(formSelect.options).map(option => ({
+        value: option.value,
+        text: option.text
+    }));
+
+    searchInput.addEventListener('input', function () {
+        const searchText = this.value.toLowerCase().trim();
+        const selectedValue = formSelect.value;
+
+        formSelect.innerHTML = '';
+
+        originalOptions.forEach(option => {
+    if (option.text.toLowerCase().includes(searchText)) {
+        const newOption = document.createElement('option');
+
+        newOption.value = option.value;
+        newOption.textContent = option.text;
+
+        if (option.value === selectedValue) {
+            newOption.selected = true;
+        }
+
+        formSelect.appendChild(newOption);
+    }
+});
+    });
+</script>
+<script>
+(function () {
+    const asrSearchInput = document.getElementById('asrSearch');
+    const creatorFilter = document.getElementById('creatorFilter');
+    const asrRows = Array.from(
+        document.querySelectorAll('[data-asr-row]')
+    );
+
+    function applyAsrFilters() {
+        const query = (asrSearchInput?.value || '')
+            .trim()
+            .toLowerCase();
+
+        const selectedCreator = creatorFilter?.value || '';
+
+        asrRows.forEach(function (row) {
+            const matchesSearch =
+                row.dataset.search.includes(query);
+
+            const matchesCreator =
+                selectedCreator === '' ||
+                row.dataset.createdBy === selectedCreator;
+
+            row.hidden = !(matchesSearch && matchesCreator);
+        });
+    }
+
+    asrSearchInput?.addEventListener('input', applyAsrFilters);
+    creatorFilter?.addEventListener('change', applyAsrFilters);
+})();
 </script>
 <?= $this->endSection() ?>
