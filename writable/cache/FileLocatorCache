@@ -132,6 +132,16 @@
         ),
       ),
     ),
+    'Helpers/audit_helper' => 
+    array (
+      'php' => 
+      array (
+        1 => 
+        array (
+          0 => 'D:\\Projects\\rmt-app-new\\app\\Helpers\\audit_helper.php',
+        ),
+      ),
+    ),
   ),
   'findQualifiedNameFromPath' => 
   array (
