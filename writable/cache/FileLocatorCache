@@ -112,7 +112,7 @@
         ),
       ),
     ),
-    'Helpers/workflow_helper' => 
+    'Helpers/audit_helper' => 
     array (
       'php' => 
       array (
