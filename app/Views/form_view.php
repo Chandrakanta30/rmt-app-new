@@ -686,11 +686,11 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
         <?php foreach ($sections as $index => $section): ?>
             <?php $layout = strtolower($section['layout'] ?? ''); ?>
-            <form class="section-panel" method="post" action="<?= site_url('form/submit') ?>">
+            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?>" method="post" action="<?= site_url('form/submit') ?>">
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
-
+                <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]"value="<?= esc($section['action_flag'] ?? '') ?>">
                 <?php if (!empty($asrId)): ?>
                     <input type="hidden" name="asr_id[<?= esc($section['id']) ?>]" value="<?= esc($asrId) ?>">
                 <?php endif; ?>
@@ -704,8 +704,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 $isApproved = ($secStatus === 'approved');
                 ?>
 
-                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly || $isApproved) ? 'disabled' : '' ?>>
-                <div class="section-panel-header">
+                <div class="section-panel-header" role="button" tabindex="0" aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>">
                     <div>
                         <span class="section-kicker">Section <?= $index + 1 ?></span>
                         <h2><?= esc($section['title']) ?></h2>
@@ -725,6 +724,8 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                         <span class="section-count"><?= count($section['fields']) ?> fields</span>
                     </div>
                 </div>
+
+                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly || $isApproved) ? 'disabled' : '' ?>>
 
                 <?php if ($secStatus === 'rejected' && !empty($rejectionComment)): ?>
                     <div class="alert alert-danger d-flex align-items-start gap-2 mb-3 mt-2" style="border-radius: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #b91c1c;">
@@ -1047,6 +1048,29 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     })();
 </script>
 <style>
+    .section-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    cursor: pointer;
+    user-select: none;
+    }
+
+    .section-panel-header > .d-flex {
+    margin-left: auto;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    }
+
+    .section-panel-header:hover {
+        background: #f8fafc;
+    }
+
+    .section-panel.is-collapsed .section-fieldset {
+        display: none;
+    }
+
     .rt-add-wrap {
         margin-top: 10px;
     }
@@ -1273,10 +1297,14 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     }
 
     .view-mode-overlay {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        z-index: 10;
+    position: absolute;
+    top: 72px;
+    right: 12px;
+    z-index: 10;
+    }
+    .section-panel-header > .d-flex {
+    margin-left: auto;
+    flex-wrap: nowrap;
     }
 
     .view-mode-badge {
@@ -1537,5 +1565,30 @@ if (asrSignConfirm) {
         }
     });
 }
+</script>
+<script>
+(function () {
+    document.querySelectorAll('.section-panel').forEach(function (panel) {
+        const header = panel.querySelector('.section-panel-header');
+
+        if (!header) {
+            return;
+        }
+
+        function toggleSection() {
+            const isCollapsed = panel.classList.toggle('is-collapsed');
+            header.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+        }
+
+        header.addEventListener('click', toggleSection);
+
+        header.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleSection();
+            }
+        });
+    });
+})();
 </script>
 <?= $this->endSection() ?>
