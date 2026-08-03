@@ -315,6 +315,24 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
         background: #e2e8f0;
         color: #0f172a;
     }
+
+    .users-toolbar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    }
+
+    .no-match-row td {
+        text-align: center;
+        color: #94a3b8;
+        padding: 2.5rem 1rem;
+    }
 </style>
 
 <div class="users-page">
@@ -328,6 +346,24 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
             Create New User
         </button>
+    </div>
+
+    <div class="users-toolbar">
+        <label class="search-box mb-0" style="flex: 1;">
+            <span style="font-weight: 700; font-size: 0.78rem; text-transform: uppercase; color: #475569; display: block; margin-bottom: 0.35rem;">Search user</span>
+            <input id="userSearch" type="search" class="form-control" placeholder="Type a user name or email...">
+        </label>
+
+        <label class="role-filter mb-0" style="width: 220px;">
+            <span style="font-weight: 700; font-size: 0.78rem; text-transform: uppercase; color: #475569; display: block; margin-bottom: 0.35rem;">Filter by role</span>
+            <select id="roleFilter" class="form-select">
+                <option value="">All roles</option>
+                <?php foreach ($roles as $role): ?>
+                    <option value="<?= strtolower(esc($role['name'])) ?>"><?= esc($role['name']) ?></option>
+                <?php endforeach; ?>
+                <option value="no role">No Role</option>
+            </select>
+        </label>
     </div>
 
     <?php if(session()->getFlashdata('success')): ?>
@@ -373,7 +409,9 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
                         </tr>
                     <?php else: ?>
                         <?php foreach($users as $user): ?>
-                            <tr>
+                            <tr
+                                data-user-search="<?= esc(strtolower(($user['name'] ?? '') . ' ' . ($user['email'] ?? ''))) ?>"
+                                data-user-role="<?= esc(strtolower($user['role_name'] ?: 'no role')) ?>">
                                 <td>
                                     <span class="users-id-badge"><?= esc($user['id']) ?></span>
                                 </td>
@@ -406,9 +444,13 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
                                 <?php endif; ?>
                                 <td style="text-align: right;">
                                     <div style="display: inline-flex; gap: 0.4rem; justify-content: flex-end;">
-                                        <a href="<?= base_url('users/edit/' . $user['id']) ?>" class="btn-action-icon btn-action-edit" title="Edit User" aria-label="Edit User">
+                                        <button type="button"
+                                            class="btn-action-icon btn-action-edit"
+                                            title="Edit User"
+                                            aria-label="Edit User"
+                                            onclick="openUserEditModal(<?= (int) $user['id'] ?>, '<?= esc($user['name'], 'js') ?>', '<?= esc($user['email'], 'js') ?>', <?= (int) ($user['role_id'] ?? 0) ?>)">
                                             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                                        </a>
+                                        </button>
                                         <a href="<?= base_url('users/delete/' . $user['id']) ?>" class="btn-action-icon btn-action-delete" title="Delete User" aria-label="Delete User" onclick="return confirm('Are you sure you want to delete this user?')">
                                             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                         </a>
@@ -416,6 +458,9 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
                                 </td>
                             </tr>
                         <?php endforeach; ?>
+                        <tr id="noUserMatches" class="no-match-row" style="display: none;">
+                        <td colspan="<?= 6 + ($canViewAuditLog ? 1 : 0) ?>">No users match your filters.</td>
+                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -492,12 +537,13 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
             </div>
 
             <div class="form-group mb-3">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required placeholder="Enter login password (min 6 characters)">
+                <label for="password" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">Password</label>
+                <input type="password" id="password" name="password" class="form-control" required placeholder="Enter login password (min 6 characters)">
+            </div>
 
             <div class="form-group mb-4">
-                <label for="role_id">Role</label>
-                <select id="role_id" name="role_id">
+                <label for="role_id" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">Role</label>
+                <select id="role_id" name="role_id" class="form-select">
                     <option value="">Select Role</option>
                     <?php foreach($roles as $role): ?>
                         <option value="<?= $role['id'] ?>" <?= old('role_id') == $role['id'] ? 'selected' : '' ?>>
@@ -508,11 +554,99 @@ $canModify = has_permission('delete_user') || has_permission('update_user');
             </div>
 
             <div style="display: flex; gap: 12px;">
-                <button type="submit" class="btn btn-success" style="flex: 1;">Create</button>
-                <button type="button" class="btn btn-light" style="flex: 1; border: 1px solid #cbd5e1;"
+                <button type="submit" class="btn btn-success" style="flex: 1; padding: 0.65rem 1rem; font-weight: 700;">Create</button>
+                <button type="button" class="btn btn-light" style="flex: 1; border: 1px solid #cbd5e1; padding: 0.65rem 1rem; font-weight: 600;"
                     onclick="document.getElementById('userCreateModal').style.display='none'">Cancel</button>
             </div>
         </form>
     </div>
 </div>
+
+<div id="userEditModal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Edit User</h3>
+            <button type="button" class="modal-close"
+                onclick="document.getElementById('userEditModal').style.display='none'">&times;</button>
+        </div>
+
+        <form id="userEditForm" method="POST">
+            <?= csrf_field() ?>
+
+            <div class="form-group mb-3">
+                <label for="edit_name" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">Name</label>
+                <input type="text" id="edit_name" name="name" class="form-control" required placeholder="Enter full name">
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="edit_email" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">Email</label>
+                <input type="email" id="edit_email" name="email" class="form-control" required placeholder="Enter email address">
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="edit_password" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">
+                    Password <span style="font-size: 0.75rem; color: #7f8c8d; text-transform: none;">(Leave blank to keep current password)</span>
+                </label>
+                <input type="password" id="edit_password" name="password" class="form-control" placeholder="Enter new password to change">
+            </div>
+
+            <div class="form-group mb-4">
+                <label for="edit_role_id" class="form-label" style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: #475569;">Role</label>
+                <select id="edit_role_id" name="role_id" class="form-select">
+                    <option value="">Select Role</option>
+                    <?php foreach($roles as $role): ?>
+                        <option value="<?= $role['id'] ?>"><?= esc($role['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button type="submit" class="btn btn-success" style="flex: 1; padding: 0.65rem 1rem; font-weight: 700;">Update</button>
+                <button type="button" class="btn btn-light" style="flex: 1; border: 1px solid #cbd5e1; padding: 0.65rem 1rem; font-weight: 600;"
+                    onclick="document.getElementById('userEditModal').style.display='none'">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openUserEditModal(id, name, email, roleId) {
+    document.getElementById('userEditForm').action = '<?= base_url('users/update') ?>/' + id;
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_email').value = email;
+    document.getElementById('edit_password').value = '';
+    document.getElementById('edit_role_id').value = roleId || '';
+    document.getElementById('userEditModal').style.display = 'flex';
+    }
+
+    (function() {
+        const searchInput = document.getElementById('userSearch');
+        const roleSelect = document.getElementById('roleFilter');
+        const rows = Array.from(document.querySelectorAll('tr[data-user-search]'));
+        const noMatches = document.getElementById('noUserMatches');
+
+        function applyUserFilters() {
+            const query = (searchInput?.value || '').trim().toLowerCase();
+            const role = roleSelect?.value || '';
+            let visibleCount = 0;
+
+            rows.forEach(function(row) {
+                const matchesSearch = !query || row.dataset.userSearch.includes(query);
+                const matchesRole = !role || row.dataset.userRole === role;
+                const show = matchesSearch && matchesRole;
+
+                row.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+
+            if (noMatches) {
+                noMatches.style.display = visibleCount === 0 ? '' : 'none';
+            }
+        }
+
+        searchInput?.addEventListener('input', applyUserFilters);
+        roleSelect?.addEventListener('change', applyUserFilters);
+    })();
+</script>
+
 <?= $this->endSection() ?>
