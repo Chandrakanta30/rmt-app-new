@@ -655,11 +655,11 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
         <?php foreach ($sections as $index => $section): ?>
             <?php $layout = strtolower($section['layout'] ?? ''); ?>
-            <form class="section-panel" method="post" action="<?= site_url('form/submit') ?>">
+            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?>" method="post" action="<?= site_url('form/submit') ?>">
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
-
+                <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]"value="<?= esc($section['action_flag'] ?? '') ?>">
                 <?php if (!empty($asrId)): ?>
                     <input type="hidden" name="asr_id[<?= esc($section['id']) ?>]" value="<?= esc($asrId) ?>">
                 <?php endif; ?>
@@ -673,8 +673,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 $isApproved = ($secStatus === 'approved');
                 ?>
 
-                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly || $isApproved) ? 'disabled' : '' ?>>
-                <div class="section-panel-header">
+                <div class="section-panel-header" role="button" tabindex="0" aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>">
                     <div>
                         <span class="section-kicker">Section <?= $index + 1 ?></span>
                         <h2><?= esc($section['title']) ?></h2>
@@ -694,6 +693,8 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                         <span class="section-count"><?= count($section['fields']) ?> fields</span>
                     </div>
                 </div>
+
+                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly || $isApproved) ? 'disabled' : '' ?>>
 
                 <?php if ($secStatus === 'rejected' && !empty($rejectionComment)): ?>
                     <div class="alert alert-danger d-flex align-items-start gap-2 mb-3 mt-2" style="border-radius: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #b91c1c;">
@@ -751,15 +752,26 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     <div class="section-actions d-flex gap-2 justify-content-end align-items-center mt-3 pt-3 border-top">
                         <?php if ($secStatus === 'draft' || $secStatus === 'rejected' || empty($secStatus)): ?>
                             <!-- PART 1: BEGINNING -> Save as Draft & Save -->
-                            <button class="btn btn-outline-secondary px-3 font-weight-600" type="submit" name="save_type[<?= $section['id'] ?>]" value="draft">
+                            <button class="btn btn-outline-secondary px-3 font-weight-600"
+                                    type="<?= !empty($asrId) ? 'button' : 'submit' ?>"
+                                    name="save_type[<?= $section['id'] ?>]"
+                                    value="draft"
+                                    <?= !empty($asrId) ? 'data-asr-sign-action="save" data-asr-save-type="draft" data-asr-label="Save as Draft"' : '' ?>>
                                 💾 Save as Draft
                             </button>
-                            <button class="btn btn-primary px-4 font-weight-600" type="submit" name="save_type[<?= $section['id'] ?>]" value="submit">
+                            <button class="btn btn-primary px-4 font-weight-600"
+                                    type="<?= !empty($asrId) ? 'button' : 'submit' ?>"
+                                    name="save_type[<?= $section['id'] ?>]"
+                                    value="submit"
+                                    <?= !empty($asrId) ? 'data-asr-sign-action="save" data-asr-save-type="submit" data-asr-label="Save and Submit"' : '' ?>>
                                 ✔ Save
                             </button>
                         <?php elseif ($secStatus === 'submitted'): ?>
                             <!-- PART 2: AFTER SAVE -> Draft hidden. Review option visible -->
-                            <button type="submit" class="btn btn-warning px-4 font-weight-600 text-dark" formaction="<?= site_url('form/section-review') ?>">
+                            <button type="<?= !empty($asrId) ? 'button' : 'submit' ?>"
+                                    class="btn btn-warning px-4 font-weight-600 text-dark"
+                                    formaction="<?= site_url('form/section-review') ?>"
+                                    <?= !empty($asrId) ? 'data-asr-sign-action="review" data-asr-label="Submit for Review"' : '' ?>>
                                 📩 Submit for Review
                             </button>
                             <input type="hidden" name="section_id" value="<?= $section['id'] ?>">
@@ -839,6 +851,30 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     </div>
     <?php endif; ?>
 </div>
+
+<?php if (!empty($asrId)): ?>
+<div class="wf-backdrop" id="asrSignBackdrop" role="dialog" aria-modal="true" aria-labelledby="asrSignTitle">
+    <div class="wf-dialog">
+        <h2 id="asrSignTitle">Confirm ASR action</h2>
+        <p class="wf-sub" id="asrSignSub"></p>
+
+        <div id="asrSignCommentGroup" style="display:none;">
+            <label for="asrSignComment" id="asrSignCommentLabel">Comment <span id="asrSignCommentHint">(required)</span></label>
+            <textarea id="asrSignComment" placeholder="Explain why this ASR section is being rejected..."></textarea>
+        </div>
+
+        <div style="margin-top: 1rem;">
+            <label for="asrSignPassword">Password <span style="color:#b42318;">(required)</span></label>
+            <input type="password" id="asrSignPassword" placeholder="Enter your password to sign..." autocomplete="current-password" required>
+        </div>
+
+        <div class="wf-dialog-actions">
+            <button type="button" class="btn btn-secondary" id="asrSignCancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="asrSignConfirm">Sign and Confirm</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <?= $this->include('partials/workflow_modal') ?>
 <?= $this->endSection() ?>
@@ -976,6 +1012,29 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     })();
 </script>
 <style>
+    .section-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    cursor: pointer;
+    user-select: none;
+    }
+
+    .section-panel-header > .d-flex {
+    margin-left: auto;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    }
+
+    .section-panel-header:hover {
+        background: #f8fafc;
+    }
+
+    .section-panel.is-collapsed .section-fieldset {
+        display: none;
+    }
+
     .rt-add-wrap {
         margin-top: 10px;
     }
@@ -1202,10 +1261,14 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     }
 
     .view-mode-overlay {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        z-index: 10;
+    position: absolute;
+    top: 72px;
+    right: 12px;
+    z-index: 10;
+    }
+    .section-panel-header > .d-flex {
+    margin-left: auto;
+    flex-wrap: nowrap;
     }
 
     .view-mode-badge {
@@ -1283,23 +1346,72 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 </style>
 
 <script>
-function handleSectionDecision(sectionId, asrId, decision) {
-    if (decision === 'reject') {
-        const comment = prompt('Please enter the reason/comment for rejecting this section:');
-        if (comment === null) return;
-        if (comment.trim() === '') {
-            alert('A reason/comment is required to reject a section.');
-            return;
-        }
-        submitDecisionForm(sectionId, asrId, 'reject', comment.trim());
-    } else {
-        if (confirm('Are you sure you want to ACCEPT and approve this section?')) {
-            submitDecisionForm(sectionId, asrId, 'accept', '');
-        }
-    }
+let asrPendingAction = null;
+
+function openAsrSignModal(action) {
+    const backdrop = document.getElementById('asrSignBackdrop');
+    const title = document.getElementById('asrSignTitle');
+    const sub = document.getElementById('asrSignSub');
+    const commentGroup = document.getElementById('asrSignCommentGroup');
+    const comment = document.getElementById('asrSignComment');
+    const commentHint = document.getElementById('asrSignCommentHint');
+    const password = document.getElementById('asrSignPassword');
+    const confirmButton = document.getElementById('asrSignConfirm');
+
+    if (!backdrop) return;
+
+    asrPendingAction = action;
+    title.textContent = action.label;
+    sub.textContent = 'ASR section signature confirmation';
+    comment.value = '';
+    password.value = '';
+
+    const commentRequired = action.type === 'decision' && action.decision === 'reject';
+    comment.required = commentRequired;
+    commentGroup.style.display = commentRequired ? 'block' : 'none';
+    commentHint.textContent = '(required)';
+
+    confirmButton.className = 'btn ' + (commentRequired ? 'btn-danger' : 'btn-primary');
+    confirmButton.textContent = action.type === 'decision' && action.decision === 'accept'
+        ? 'Sign and Approve'
+        : 'Sign and Confirm';
+
+    backdrop.setAttribute('open', '');
+    password.focus();
 }
 
-function submitDecisionForm(sectionId, asrId, decision, comment) {
+function closeAsrSignModal() {
+    const backdrop = document.getElementById('asrSignBackdrop');
+    if (backdrop) backdrop.removeAttribute('open');
+    asrPendingAction = null;
+}
+
+function handleSectionDecision(sectionId, asrId, decision) {
+    if (!document.getElementById('asrSignBackdrop')) {
+        if (decision === 'reject') {
+            const comment = prompt('Please enter the reason/comment for rejecting this section:');
+            if (comment === null) return;
+            if (comment.trim() === '') {
+                alert('A reason/comment is required to reject a section.');
+                return;
+            }
+            submitDecisionForm(sectionId, asrId, 'reject', comment.trim(), '');
+        } else if (confirm('Are you sure you want to ACCEPT and approve this section?')) {
+            submitDecisionForm(sectionId, asrId, 'accept', '', '');
+        }
+        return;
+    }
+
+    openAsrSignModal({
+        type: 'decision',
+        decision: decision,
+        sectionId: sectionId,
+        asrId: asrId,
+        label: decision === 'accept' ? 'Accept and Approve Section' : 'Reject Section'
+    });
+}
+
+function submitDecisionForm(sectionId, asrId, decision, comment, password) {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '<?= site_url("form/section-decision") ?>';
@@ -1334,8 +1446,113 @@ function submitDecisionForm(sectionId, asrId, decision, comment) {
     commInput.value = comment;
     form.appendChild(commInput);
 
+    const passwordInput = document.createElement('input');
+    passwordInput.type = 'hidden';
+    passwordInput.name = 'password';
+    passwordInput.value = password;
+    form.appendChild(passwordInput);
+
     document.body.appendChild(form);
     form.submit();
 }
+
+document.querySelectorAll('[data-asr-sign-action]').forEach(function(button) {
+    button.addEventListener('click', function() {
+        openAsrSignModal({
+            type: button.dataset.asrSignAction,
+            label: button.dataset.asrLabel,
+            saveType: button.dataset.asrSaveType || '',
+            form: button.closest('form')
+        });
+    });
+});
+
+const asrSignCancel = document.getElementById('asrSignCancel');
+if (asrSignCancel) {
+    asrSignCancel.addEventListener('click', closeAsrSignModal);
+}
+
+const asrSignBackdrop = document.getElementById('asrSignBackdrop');
+if (asrSignBackdrop) {
+    asrSignBackdrop.addEventListener('click', function(event) {
+        if (event.target === asrSignBackdrop) closeAsrSignModal();
+    });
+}
+
+const asrSignConfirm = document.getElementById('asrSignConfirm');
+if (asrSignConfirm) {
+    asrSignConfirm.addEventListener('click', function() {
+        if (!asrPendingAction) return;
+
+        const comment = document.getElementById('asrSignComment');
+        const password = document.getElementById('asrSignPassword');
+
+        if (!comment.reportValidity() || !password.reportValidity()) return;
+
+        if (asrPendingAction.type === 'decision') {
+            submitDecisionForm(
+                asrPendingAction.sectionId,
+                asrPendingAction.asrId,
+                asrPendingAction.decision,
+                comment.value.trim(),
+                password.value
+            );
+            return;
+        }
+
+        const targetForm = asrPendingAction.form;
+        if (!targetForm) return;
+
+        let passwordField = targetForm.querySelector('input[name="password"]');
+        if (!passwordField) {
+            passwordField = document.createElement('input');
+            passwordField.type = 'hidden';
+            passwordField.name = 'password';
+            targetForm.appendChild(passwordField);
+        }
+        passwordField.value = password.value;
+
+        if (asrPendingAction.type === 'save') {
+            const sectionId = targetForm.querySelector('input[name^="form_id["]').name.match(/\[(\d+)\]/)[1];
+            const saveTypeField = document.createElement('input');
+            saveTypeField.type = 'hidden';
+            saveTypeField.name = 'save_type[' + sectionId + ']';
+            saveTypeField.value = asrPendingAction.saveType;
+            targetForm.appendChild(saveTypeField);
+            targetForm.requestSubmit();
+            return;
+        }
+
+        if (asrPendingAction.type === 'review') {
+            targetForm.action = '<?= site_url("form/section-review") ?>';
+            targetForm.requestSubmit();
+        }
+    });
+}
+</script>
+<script>
+(function () {
+    document.querySelectorAll('.section-panel').forEach(function (panel) {
+        const header = panel.querySelector('.section-panel-header');
+
+        if (!header) {
+            return;
+        }
+
+        function toggleSection() {
+            const isCollapsed = panel.classList.toggle('is-collapsed');
+            header.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+        }
+
+        header.addEventListener('click', toggleSection);
+
+        header.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleSection();
+            }
+        });
+    });
+})();
 </script>
 <?= $this->endSection() ?>
