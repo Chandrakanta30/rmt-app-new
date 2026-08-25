@@ -290,6 +290,27 @@ $renderTableTemplate = static function (string $template, array $section, array 
         return !$blank;
     };
 
+
+    $rowAllHeaderTokens = function (string $line) use ($parseCsvLine): bool {
+        $blank = true;
+        foreach ($parseCsvLine($line) as $c) {
+            $c = trim($c);
+            if ($c === '') {
+                continue;
+            }
+            $blank = false;
+            if (!preg_match('/^\[(.+)\]$/', $c, $m)) {
+                return false;
+            }
+            $parts = array_map('strtolower', array_map('trim', explode('|', $m[1])));
+            if (!in_array('header', array_slice($parts, 1), true)) {
+                return false;
+            }
+        }
+
+        return !$blank;
+    };
+
     $firstHeaderSpans = false;
     foreach ($parseCsvLine($lines[0]) as $c) {
         [$cs, $rs] = $parseSpan($c);
@@ -299,8 +320,16 @@ $renderTableTemplate = static function (string $template, array $section, array 
         }
     }
 
+    // Line 0 is always the header. Beyond that, prefer the explicit marker;
+    // never swallow the last line, or the table would have no body.
     $headerLineCount = 1;
-    if ($firstHeaderSpans) {
+    while ($headerLineCount < count($lines) - 1 && $rowAllHeaderTokens($lines[$headerLineCount])) {
+        $headerLineCount++;
+    }
+
+    // Legacy fallback: forms saved before the |header marker signalled a stacked
+    // header by putting a span on line 0; absorb the all-static lines after it.
+    if ($headerLineCount === 1 && $firstHeaderSpans) {
         while ($headerLineCount < count($lines) && $rowAllStatic($lines[$headerLineCount])) {
             $headerLineCount++;
         }
