@@ -111,14 +111,14 @@ class Form extends Controller
     //         'breadcrumb' => $form['name'] ?? 'Form',
     //     ]);
     // }
-public function index($formKey = 'accuracyform')
-{
-    $asr=$_GET['asr']??0;
-    $formModel = new FormModel();
-    $sectionModel = new SectionModel();
+    public function index($formKey = 'accuracyform')
+    {
+        $asr = $_GET['asr'] ?? 0;
+        $formModel = new FormModel();
+        $sectionModel = new SectionModel();
 
-    // 1. Get form
-    $form = $formModel->where('form_key', $formKey)->first();
+        // 1. Get form
+        $form = $formModel->where('form_key', $formKey)->first();
 
         if (!$form) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
@@ -127,228 +127,228 @@ public function index($formKey = 'accuracyform')
 
         $viewOnly = (service('request')->getGet('mode') === 'view');
 
-    // 2. Check composite
-    $db = \Config\Database::connect();
+        // 2. Check composite
+        $db = \Config\Database::connect();
 
-    $childIds = $db->table('form_compositions')
-        ->select('child_form_id')
-        ->where('parent_form_id', $form['id'])
-        ->orderBy('order')
-        ->get()
-        ->getResultArray();
+        $childIds = $db->table('form_compositions')
+            ->select('child_form_id')
+            ->where('parent_form_id', $form['id'])
+            ->orderBy('order')
+            ->get()
+            ->getResultArray();
 
-    if (empty($childIds)) {
-        $formIds = [$form['id']];
-    } else {
-        $formIds = array_column($childIds, 'child_form_id');
-    }
+        if (empty($childIds)) {
+            $formIds = [$form['id']];
+        } else {
+            $formIds = array_column($childIds, 'child_form_id');
+        }
 
-    $dataValues = [];
+        $dataValues = [];
         // View-only mode (?mode=view): render the form structure with empty,
         // non-editable fields — the user can see the form but cannot type or
         // load any saved data.
         $request = service('request');
         $viewOnly = ($request->getGet('mode') === 'view');
 
-    $sections = $sectionModel->getSectionsWithFields($formIds);
-
-    foreach ($sections as $section) {
-        // Read form_values first so saved data reflects back
-        $row = $db->table('form_values')
-            ->where('section_id', $section['id'])
-            ->where('asr_id', $asr)
-            ->orderBy('id', 'DESC')
-            ->get()
-            ->getRowArray();
-
-        if ($row) {
-            $dataValues[$section['id']] = json_decode($row['values'], true);
-            continue;
-        }
-
-        // REMOVED: Fallback to section table - we only use form_values now
-        // All data is stored in form_values table
-        $dataValues = [];
-
         $sections = $sectionModel->getSectionsWithFields($formIds);
 
-        // Check if form is approved for edit access.
-        // ASR-scoped entries are always editable — the form template's own
-        // approval workflow only gates direct (non-ASR) access to the form.
-        $canEdit = ($asr > 0) ? true : ($form['status'] === 'Approved');
-        // $asrId = (int) ($request->getGet('asr_id') ?? 0);
-        $asrId = $asr;
-
-        if ($asrId > 0) {
-            $asrMapping = $db->table('form_asr_mapping')
-                ->select('id')
-                ->where('id', $asrId)
-                ->where('form_id', $form['id'])
-                ->get()
-                ->getRow();
-
-            if (!$asrMapping) {
-                throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
-            }
-        }
-
-        // In view-only mode, skip data loading entirely so every field renders empty.
-        foreach (($viewOnly ? [] : $sections) as $section) {
-            // The submit path ALWAYS records into form_values (keyed by section_id) —
-            // the forms table carries no `table` column, so every save lands there.
-            // Read form_values first so saved data reflects back, regardless of
-            // whether the section carries a dynamic `table` name (classic builder
-            // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
-            $valuesQuery = $db->table('form_values')
-                ->where('section_id', $section['id']);
-
-                $valuesQuery->where('asr_id', $asrId);
-            
-
-            $row = $valuesQuery
+        foreach ($sections as $section) {
+            // Read form_values first so saved data reflects back
+            $row = $db->table('form_values')
+                ->where('section_id', $section['id'])
+                ->where('asr_id', $asr)
                 ->orderBy('id', 'DESC')
                 ->get()
                 ->getRowArray();
 
             if ($row) {
-                // values is a JSON array of row objects for repeatable tables,
-                // or a single object for grid/inline sections.
                 $dataValues[$section['id']] = json_decode($row['values'], true);
                 continue;
             }
 
-            $table = !empty($section['table']) ? $section['table'] : null;
-            if ($asrId <= 0 && $table && in_array($table, $db->listTables(), true)) {
-                $tableRow = $db->table($table)
+            // REMOVED: Fallback to section table - we only use form_values now
+            // All data is stored in form_values table
+            $dataValues = [];
+
+            $sections = $sectionModel->getSectionsWithFields($formIds);
+
+            // Check if form is approved for edit access.
+            // ASR-scoped entries are always editable — the form template's own
+            // approval workflow only gates direct (non-ASR) access to the form.
+            $canEdit = ($asr > 0) ? true : ($form['status'] === 'Approved');
+            // $asrId = (int) ($request->getGet('asr_id') ?? 0);
+            $asrId = $asr;
+
+            if ($asrId > 0) {
+                $asrMapping = $db->table('form_asr_mapping')
+                    ->select('id')
+                    ->where('id', $asrId)
+                    ->where('form_id', $form['id'])
+                    ->get()
+                    ->getRow();
+
+                if (!$asrMapping) {
+                    throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+                }
+            }
+
+            // In view-only mode, skip data loading entirely so every field renders empty.
+            foreach (($viewOnly ? [] : $sections) as $section) {
+                // The submit path ALWAYS records into form_values (keyed by section_id) —
+                // the forms table carries no `table` column, so every save lands there.
+                // Read form_values first so saved data reflects back, regardless of
+                // whether the section carries a dynamic `table` name (classic builder
+                // sets one, e.g. fb_calc_neipa1, but nothing is ever written into it).
+                $valuesQuery = $db->table('form_values')
+                    ->where('section_id', $section['id']);
+
+                $valuesQuery->where('asr_id', $asrId);
+
+
+                $row = $valuesQuery
                     ->orderBy('id', 'DESC')
                     ->get()
                     ->getRowArray();
 
-                if ($tableRow) {
-                    $dataValues[$section['id']] = $tableRow;
-                }
-            }
-        }
-
-        // Build section metadata (table_name, created_at, created_by, reviewed_at, reviewed_by)
-        $sectionMetadata = [];
-        $reviewLog = $db->table('audit_logs a')
-            ->select('a.created_at, u.name as reviewer_name')
-            ->join('users u', 'u.id = a.user_id', 'left')
-            ->where('a.entity_id', $form['id'])
-            ->where('a.module', 'forms')
-            ->whereIn('a.action', ['approve', 'review', 'submit_review', 'accept'])
-            ->orderBy('a.id', 'DESC')
-            ->get()
-            ->getRowArray();
-
-        $formReviewer = $reviewLog['reviewer_name'] ?? null;
-        $formReviewedAt = $reviewLog['created_at'] ?? null;
-
-        foreach ($sections as $sec) {
-            $tableName = !empty($sec['table']) ? $sec['table'] : 'form_values';
-            $createdAt = null;
-            $createdBy = null;
-            $secReviewer = null;
-            $secReviewedAt = null;
-
-            $fvQuery = $db->table('form_values')->where('section_id', $sec['id']);
-            if ($asrId > 0) {
-                $fvQuery->where('asr_id', $asrId);
-            }
-            $fv = $fvQuery->orderBy('id', 'DESC')->get()->getRowArray();
-
-            if ($fv) {
-                if (!empty($fv['created_at'])) {
-                    $createdAt = $fv['created_at'];
-                }
-                if (!empty($fv['created_by'])) {
-                    $u = $db->table('users')->where('id', $fv['created_by'])->get()->getRowArray();
-                    $createdBy = $u['name'] ?? null;
+                if ($row) {
+                    // values is a JSON array of row objects for repeatable tables,
+                    // or a single object for grid/inline sections.
+                    $dataValues[$section['id']] = json_decode($row['values'], true);
+                    continue;
                 }
 
-                // If created_at / created_by are not stored on form_values columns, look up audit_log strictly for this entity_id
-                if (!$createdAt || !$createdBy) {
-                    $log = $db->table('audit_logs a')
-                        ->select('a.created_at, u.name as user_name')
-                        ->join('users u', 'u.id = a.user_id', 'left')
-                        ->where('a.entity_id', $fv['id'])
-                        ->where('a.module', 'form_values')
-                        ->orderBy('a.id', 'DESC')
+                $table = !empty($section['table']) ? $section['table'] : null;
+                if ($asrId <= 0 && $table && in_array($table, $db->listTables(), true)) {
+                    $tableRow = $db->table($table)
+                        ->orderBy('id', 'DESC')
                         ->get()
                         ->getRowArray();
 
-                    if ($log) {
-                        if (!$createdAt) $createdAt = $log['created_at'];
-                        if (!$createdBy) $createdBy = $log['user_name'];
+                    if ($tableRow) {
+                        $dataValues[$section['id']] = $tableRow;
                     }
-                }
-
-                // If form_values table has reviewed_by column:
-                if (array_key_exists('reviewed_by', $fv)) {
-                    if (!empty($fv['reviewed_by'])) {
-                        $u = $db->table('users')->where('id', $fv['reviewed_by'])->get()->getRowArray();
-                        $secReviewer = $u['name'] ?? null;
-                        $secReviewedAt = $fv['reviewed_at'] ?? null;
-                    }
-                } else {
-                    $secReviewer = $formReviewer;
-                    $secReviewedAt = $formReviewedAt;
                 }
             }
 
-            if (!$createdAt && !empty($sec['table']) && in_array($sec['table'], $db->listTables(), true)) {
-                $dtQuery = $db->table($sec['table']);
-                if ($asrId > 0 && in_array('asr_no', $db->getFieldNames($sec['table']), true)) {
-                    $dtQuery->where('asr_no', $asrId);
+            // Build section metadata (table_name, created_at, created_by, reviewed_at, reviewed_by)
+            $sectionMetadata = [];
+            $reviewLog = $db->table('audit_logs a')
+                ->select('a.created_at, u.name as reviewer_name')
+                ->join('users u', 'u.id = a.user_id', 'left')
+                ->where('a.entity_id', $form['id'])
+                ->where('a.module', 'forms')
+                ->whereIn('a.action', ['approve', 'review', 'submit_review', 'accept'])
+                ->orderBy('a.id', 'DESC')
+                ->get()
+                ->getRowArray();
+
+            $formReviewer = $reviewLog['reviewer_name'] ?? null;
+            $formReviewedAt = $reviewLog['created_at'] ?? null;
+
+            foreach ($sections as $sec) {
+                $tableName = !empty($sec['table']) ? $sec['table'] : 'form_values';
+                $createdAt = null;
+                $createdBy = null;
+                $secReviewer = null;
+                $secReviewedAt = null;
+
+                $fvQuery = $db->table('form_values')->where('section_id', $sec['id']);
+                if ($asrId > 0) {
+                    $fvQuery->where('asr_id', $asrId);
                 }
-                $dt = $dtQuery->orderBy('id', 'DESC')->get()->getRowArray();
-                if ($dt) {
-                    $createdAt = $dt['created_at'] ?? null;
-                    if (!empty($dt['created_by'])) {
-                        $u = $db->table('users')->where('id', $dt['created_by'])->get()->getRowArray();
+                $fv = $fvQuery->orderBy('id', 'DESC')->get()->getRowArray();
+
+                if ($fv) {
+                    if (!empty($fv['created_at'])) {
+                        $createdAt = $fv['created_at'];
+                    }
+                    if (!empty($fv['created_by'])) {
+                        $u = $db->table('users')->where('id', $fv['created_by'])->get()->getRowArray();
                         $createdBy = $u['name'] ?? null;
                     }
+
+                    // If created_at / created_by are not stored on form_values columns, look up audit_log strictly for this entity_id
+                    if (!$createdAt || !$createdBy) {
+                        $log = $db->table('audit_logs a')
+                            ->select('a.created_at, u.name as user_name')
+                            ->join('users u', 'u.id = a.user_id', 'left')
+                            ->where('a.entity_id', $fv['id'])
+                            ->where('a.module', 'form_values')
+                            ->orderBy('a.id', 'DESC')
+                            ->get()
+                            ->getRowArray();
+
+                        if ($log) {
+                            if (!$createdAt) $createdAt = $log['created_at'];
+                            if (!$createdBy) $createdBy = $log['user_name'];
+                        }
+                    }
+
+                    // If form_values table has reviewed_by column:
+                    if (array_key_exists('reviewed_by', $fv)) {
+                        if (!empty($fv['reviewed_by'])) {
+                            $u = $db->table('users')->where('id', $fv['reviewed_by'])->get()->getRowArray();
+                            $secReviewer = $u['name'] ?? null;
+                            $secReviewedAt = $fv['reviewed_at'] ?? null;
+                        }
+                    } else {
+                        $secReviewer = $formReviewer;
+                        $secReviewedAt = $formReviewedAt;
+                    }
                 }
+
+                if (!$createdAt && !empty($sec['table']) && in_array($sec['table'], $db->listTables(), true)) {
+                    $dtQuery = $db->table($sec['table']);
+                    if ($asrId > 0 && in_array('asr_no', $db->getFieldNames($sec['table']), true)) {
+                        $dtQuery->where('asr_no', $asrId);
+                    }
+                    $dt = $dtQuery->orderBy('id', 'DESC')->get()->getRowArray();
+                    if ($dt) {
+                        $createdAt = $dt['created_at'] ?? null;
+                        if (!empty($dt['created_by'])) {
+                            $u = $db->table('users')->where('id', $dt['created_by'])->get()->getRowArray();
+                            $createdBy = $u['name'] ?? null;
+                        }
+                    }
+                }
+
+                $secStatus = $fv['status'] ?? 'draft';
+                $secRejectionComment = $fv['rejection_comment'] ?? null;
+
+                $sectionMetadata[$sec['id']] = [
+                    'table_name'        => $tableName,
+                    'status'            => $secStatus,
+                    'rejection_comment' => $secRejectionComment,
+                    'created_at'        => $createdAt ? date('d-m-Y H:i', strtotime($createdAt)) : 'N/A',
+                    'created_by'        => $createdBy ?: 'N/A',
+                    'reviewed_at'       => $secReviewedAt ? date('d-m-Y H:i', strtotime($secReviewedAt)) : 'N/A',
+                    'reviewed_by'       => $secReviewer ?: 'N/A',
+                ];
             }
 
-            $secStatus = $fv['status'] ?? 'draft';
-            $secRejectionComment = $fv['rejection_comment'] ?? null;
-
-            $sectionMetadata[$sec['id']] = [
-                'table_name'        => $tableName,
-                'status'            => $secStatus,
-                'rejection_comment' => $secRejectionComment,
-                'created_at'        => $createdAt ? date('d-m-Y H:i', strtotime($createdAt)) : 'N/A',
-                'created_by'        => $createdBy ?: 'N/A',
-                'reviewed_at'       => $secReviewedAt ? date('d-m-Y H:i', strtotime($secReviewedAt)) : 'N/A',
-                'reviewed_by'       => $secReviewer ?: 'N/A',
-            ];
+            return view('form_view', [
+                'form' => $form,
+                'sections' => $sections,
+                'values' => $dataValues,
+                'sectionMetadata' => $sectionMetadata,
+                'readonly' => $viewOnly || !$canEdit,
+                'canEdit' => $canEdit,
+                'asrId' => $asrId,
+                'breadcrumb' => $form['name'] ?? 'Form',
+            ]);
         }
 
         return view('form_view', [
             'form' => $form,
             'sections' => $sections,
             'values' => $dataValues,
-            'sectionMetadata' => $sectionMetadata,
-            'readonly' => $viewOnly || !$canEdit,
-            'canEdit' => $canEdit,
-            'asrId' => $asrId,
+            'sectionMetadata' => $sectionMetadata ?? [],
             'breadcrumb' => $form['name'] ?? 'Form',
+            'readonly' => false,
+            'canEdit' => true,
+            'asrId' => $asr
         ]);
     }
-
-    return view('form_view', [
-        'form' => $form,
-        'sections' => $sections,
-        'values' => $dataValues,
-        'sectionMetadata' => $sectionMetadata ?? [],
-        'breadcrumb' => $form['name'] ?? 'Form',
-        'readonly'=>false,
-        'canEdit' => true,
-        'asrId' => $asr
-    ]);
-}
     public function submit()
     {
         $request = service('request');
@@ -749,7 +749,7 @@ public function index($formKey = 'accuracyform')
         }
 
         // One row in audit_logs is the whole history
-  
+
         $db->table('audit_logs')->insert([
             'user_id'         => $userId,
             'action'          => $actionName,
@@ -969,4 +969,3 @@ public function index($formKey = 'accuracyform')
         return null;
     }
 }
-

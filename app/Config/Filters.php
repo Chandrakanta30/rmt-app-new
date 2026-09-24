@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Filters\ApiKeyFilter;
 use App\Filters\AuthFilter;
 use App\Filters\PermissionFilter;
 use CodeIgniter\Config\Filters as BaseFilters;
@@ -38,6 +39,7 @@ class Filters extends BaseFilters
         'performance'   => PerformanceMetrics::class,
         'auth'          => AuthFilter::class,
         'permission'    => PermissionFilter::class,
+        'apikey'        => ApiKeyFilter::class,
     ];
 
     /**

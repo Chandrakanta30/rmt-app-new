@@ -37,6 +37,15 @@ $routes->post('form/submit', 'Form::submit', ['filter' => 'permission:submit_dat
 $routes->post('form/section-review', 'Form::sectionReview', ['filter' => 'permission:submit_data']);
 $routes->post('form/section-decision', 'Form::sectionDecision', ['filter' => 'permission:view_forms']);
 
+// JSON API 
+
+$routes->group('api/v1', ['namespace' => 'App\Controllers\Api', 'filter' => 'apikey'], static function ($routes) {
+    $routes->get('forms',                    'FormApi::index');
+    $routes->get('forms/(:segment)',         'FormApi::show/$1');
+    $routes->get('forms/(:segment)/values',  'FormApi::values/$1');
+    $routes->get('asr/(:segment)/forms',     'FormApi::byAsr/$1');
+});
+
 // ASR No. routes
 $routes->group('asr-mapping', ['filter' => 'permission:create_asrno'], function($routes) {
     $routes->get('/', [AsrController::class, 'index']);

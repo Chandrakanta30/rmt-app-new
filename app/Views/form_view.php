@@ -290,6 +290,27 @@ $renderTableTemplate = static function (string $template, array $section, array 
         return !$blank;
     };
 
+
+    $rowAllHeaderTokens = function (string $line) use ($parseCsvLine): bool {
+        $blank = true;
+        foreach ($parseCsvLine($line) as $c) {
+            $c = trim($c);
+            if ($c === '') {
+                continue;
+            }
+            $blank = false;
+            if (!preg_match('/^\[(.+)\]$/', $c, $m)) {
+                return false;
+            }
+            $parts = array_map('strtolower', array_map('trim', explode('|', $m[1])));
+            if (!in_array('header', array_slice($parts, 1), true)) {
+                return false;
+            }
+        }
+
+        return !$blank;
+    };
+
     $firstHeaderSpans = false;
     foreach ($parseCsvLine($lines[0]) as $c) {
         [$cs, $rs] = $parseSpan($c);
@@ -299,8 +320,16 @@ $renderTableTemplate = static function (string $template, array $section, array 
         }
     }
 
+    // Line 0 is always the header. Beyond that, prefer the explicit marker;
+    // never swallow the last line, or the table would have no body.
     $headerLineCount = 1;
-    if ($firstHeaderSpans) {
+    while ($headerLineCount < count($lines) - 1 && $rowAllHeaderTokens($lines[$headerLineCount])) {
+        $headerLineCount++;
+    }
+
+    // Legacy fallback: forms saved before the |header marker signalled a stacked
+    // header by putting a span on line 0; absorb the all-static lines after it.
+    if ($headerLineCount === 1 && $firstHeaderSpans) {
         while ($headerLineCount < count($lines) && $rowAllStatic($lines[$headerLineCount])) {
             $headerLineCount++;
         }
@@ -653,9 +682,38 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
 
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
-        <?php foreach ($sections as $index => $section): ?>
-            <?php $layout = strtolower($section['layout'] ?? ''); ?>
-            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?>" method="post" action="<?= site_url('form/submit') ?>">
+        <?php
+        // Sections sharing a merge_tag render inside one collapsible block card.
+        // but Each section keeps its own <form>, status, actions and footer.
+        $blocks = \App\Models\SectionModel::groupByMergeTag($sections);
+        $index = -1;
+        ?>
+        <?php foreach ($blocks as $blockNo => $block): ?>
+            <?php $isMerged = $block['title'] !== null; ?>
+            <?php if ($isMerged): ?>
+                <?php
+                $firstNo = $index + 2;
+                $lastNo = $index + 1 + count($block['sections']);
+                $blockFieldCount = array_sum(array_map(static fn($s) => count($s['fields']), $block['sections']));
+                ?>
+                <div class="merged-block <?= $blockNo === 0 ? '' : 'is-collapsed' ?>">
+                    <div class="merged-block-header" role="button" tabindex="0" aria-expanded="<?= $blockNo === 0 ? 'true' : 'false' ?>">
+                        <div>
+                            <span class="section-kicker">Sections <?= $firstNo ?>–<?= $lastNo ?> · Merged</span>
+                            <h2><?= esc($block['title']) ?></h2>
+                        </div>
+                        <span class="section-count"><?= count($block['sections']) ?> sections · <?= $blockFieldCount ?> fields</span>
+                    </div>
+                    <div class="merged-block-body">
+            <?php endif; ?>
+        <?php foreach ($block['sections'] as $section): ?>
+            <?php
+            $index++;
+            $layout = strtolower($section['layout'] ?? '');
+            // Parts of a merged block are opened/closed by the block, not one by one.
+            $panelCollapsed = !$isMerged && $blockNo !== 0;
+            ?>
+            <form class="section-panel <?= $isMerged ? 'is-merged-part' : '' ?> <?= $panelCollapsed ? 'is-collapsed' : '' ?>" method="post" action="<?= site_url('form/submit') ?>">
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
@@ -673,7 +731,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 $isApproved = ($secStatus === 'approved');
                 ?>
 
-                <div class="section-panel-header" role="button" tabindex="0" aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>">
+                <div class="section-panel-header" <?= $isMerged ? '' : 'role="button" tabindex="0" aria-expanded="' . ($panelCollapsed ? 'false' : 'true') . '"' ?>>
                     <div>
                         <span class="section-kicker">Section <?= $index + 1 ?></span>
                         <h2><?= esc($section['title']) ?></h2>
@@ -820,6 +878,11 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 </div>
                 </fieldset>
             </form>
+        <?php endforeach; ?>
+            <?php if ($isMerged): ?>
+                    </div>
+                </div>
+            <?php endif; ?>
         <?php endforeach; ?>
     </div>
 
@@ -1033,6 +1096,84 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
     .section-panel.is-collapsed .section-fieldset {
         display: none;
+    }
+
+    /* Merged block: one card holding several section panels (sections.merge_tag) */
+    .merged-block {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-left: 4px solid var(--accent-emerald-dark);
+        border-radius: 12px;
+        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+        padding: 1.5rem;
+        min-width: 0;
+    }
+
+    .merged-block-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        cursor: pointer;
+        user-select: none;
+        padding-bottom: 1.1rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .merged-block-header:hover {
+        background: #f8fafc;
+    }
+
+    .merged-block-header h2 {
+        color: var(--text-main);
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+
+    .merged-block.is-collapsed .merged-block-header {
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    .merged-block.is-collapsed .merged-block-body {
+        display: none;
+    }
+
+    .section-panel.is-merged-part,
+    .section-panel.is-merged-part:hover {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 1.25rem 0 0;
+    }
+
+    .section-panel.is-merged-part + .section-panel.is-merged-part {
+        border-top: 1px dashed var(--border-color);
+        margin-top: 1.25rem;
+    }
+
+    .section-panel.is-merged-part .section-panel-header {
+        cursor: default;
+    }
+
+    .section-panel.is-merged-part .section-panel-header:hover {
+        background: transparent;
+    }
+
+    .section-panel.is-merged-part .section-panel-header h2 {
+        font-size: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .merged-block {
+            padding: 1rem;
+        }
+
+        .merged-block-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
     }
 
     .rt-add-wrap {
@@ -1532,8 +1673,9 @@ if (asrSignConfirm) {
 </script>
 <script>
 (function () {
-    document.querySelectorAll('.section-panel').forEach(function (panel) {
-        const header = panel.querySelector('.section-panel-header');
+    // Plain sections toggle themselves; parts of a merged block toggle with the block.
+    document.querySelectorAll('.section-panel:not(.is-merged-part), .merged-block').forEach(function (panel) {
+        const header = panel.querySelector(':scope > .section-panel-header, :scope > .merged-block-header');
 
         if (!header) {
             return;
