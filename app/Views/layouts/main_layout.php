@@ -73,7 +73,8 @@
             position: fixed;
             height: 100vh;
             overflow-y: auto;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1000;
             border-right: 1px solid rgba(255, 255, 255, 0.06);
             box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
@@ -151,6 +152,7 @@
         .nav-icon {
             width: 30px;
             height: 30px;
+            flex: 0 0 30px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -158,6 +160,17 @@
             background: rgba(255,255,255,0.06);
             font-size: 0.8rem;
             font-weight: 700;
+        }
+
+        .nav-icon svg,
+        .sidebar-toggle-icon {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         .nav-divider {
@@ -173,11 +186,70 @@
         .main-wrapper {
             flex: 1;
             margin-left: 260px;
+            width: calc(100% - 260px);
+            max-width: calc(100% - 260px);
+            min-width: 0;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        @media (min-width: 769px) {
+            body.sidebar-collapsed .sidebar {
+                width: 72px;
+            }
+
+            body.sidebar-collapsed .main-wrapper {
+                margin-left: 72px;
+                width: calc(100% - 72px);
+                max-width: calc(100% - 72px);
+            }
+
+            body.sidebar-collapsed .sidebar-header {
+                padding: 1rem;
+            }
+
+            body.sidebar-collapsed .sidebar-logo {
+                justify-content: center;
+            }
+
+            body.sidebar-collapsed .logo-text,
+            body.sidebar-collapsed .nav-title {
+                display: none;
+            }
+
+            body.sidebar-collapsed .sidebar-nav {
+                padding: 0 0.5rem;
+            }
+
+            body.sidebar-collapsed .nav-link {
+                justify-content: center;
+                gap: 0;
+                padding: 0.65rem;
+            }
+
+            body.sidebar-collapsed .nav-link:hover {
+                transform: none;
+            }
+
+            body.sidebar-collapsed .nav-link.active {
+                border-left: 0;
+                box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.35);
+            }
+
+            body.sidebar-collapsed .nav-divider {
+                height: 1px;
+                margin: 1rem 0.5rem 0.65rem;
+                padding: 0;
+                overflow: hidden;
+                background: rgba(255, 255, 255, 0.12);
+                color: transparent;
+            }
+        }
+
 
         /* ========== TOP HEADER ========== */
         .top-header {
@@ -206,9 +278,18 @@
             font-size: 1.3rem;
             cursor: pointer;
             color: var(--primary-900);
-            display: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             padding: 4px;
             border-radius: 6px;
+        }
+
+        .sidebar-toggle:hover,
+        .sidebar-toggle:focus-visible {
+            color: #059669;
+            background: #ecfdf5;
+            outline: none;
         }
 
         .breadcrumb {
@@ -241,6 +322,9 @@
         /* ========== MAIN CONTENT ========== */
         .main-content {
             flex: 1;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
             padding: 2rem;
             background: radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.05) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.04) 0px, transparent 50%), var(--bg-main);
         }
@@ -308,6 +392,9 @@
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
         }
 
         .page-heading {
@@ -372,6 +459,77 @@
             font-size: 1.15rem;
             font-weight: 700;
             letter-spacing: -0.01em;
+            font-family: "Times New Roman", Times, serif;
+            text-align: left;
+        }
+
+        .section-fieldset {
+            font-family: var(--section-font-family, "Times New Roman", Times, serif);
+            font-size: var(--section-font-size, 12pt);
+            text-align: var(--section-text-align, justify);
+        }
+
+        .section-fieldset .inline-template,
+        .section-fieldset .field-grid,
+        .section-fieldset .table-template,
+        .section-fieldset .repeatable-table,
+        .section-fieldset .form-group,
+        .section-fieldset .template-field,
+        .section-fieldset input,
+        .section-fieldset textarea,
+        .section-fieldset select {
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .section-fieldset .inline-template,
+        .section-fieldset .field-grid,
+        .section-fieldset .table-template td,
+        .section-fieldset .repeatable-table td {
+            text-align: var(--section-text-align, justify);
+        }
+
+        .section-fieldset .ql-align-left {
+            text-align: left;
+        }
+
+        .section-fieldset .ql-align-center {
+            text-align: center;
+        }
+
+        .section-fieldset .ql-align-right {
+            text-align: right;
+        }
+
+        .section-fieldset .ql-align-justify {
+            text-align: justify;
+        }
+
+        .section-fieldset h1,
+        .section-fieldset h2,
+        .section-fieldset h3,
+        .section-fieldset h4,
+        .section-fieldset h5,
+        .section-fieldset h6,
+        .section-fieldset .table-template th,
+        .section-fieldset .repeatable-table th {
+            font-size: var(--section-table-header-font-size, 12pt);
+            text-align: left;
+        }
+
+        .section-fieldset .table-template .rt-label-cell,
+        .section-fieldset .repeatable-table .rt-label-cell,
+        .section-fieldset .repeatable-table .rt-sep-cell {
+            font-size: var(--section-table-label-font-size, 12pt);
+        }
+
+        .section-fieldset .table-template input,
+        .section-fieldset .table-template textarea,
+        .section-fieldset .table-template select,
+        .section-fieldset .repeatable-table input,
+        .section-fieldset .repeatable-table textarea,
+        .section-fieldset .repeatable-table select {
+            font-size: 12pt;
         }
 
         .section-count,
@@ -462,30 +620,84 @@
             width: 100%;
             max-width: 100%;
             min-width: 0;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
+            overflow-x: hidden;
             box-sizing: border-box;
         }
 
-        .table-template,
-        .repeatable-table {
+        .table-template {
+            display: block;
             width: 100%;
             max-width: 100%;
             min-width: 0;
-            overflow-x: auto !important;
+            overflow-x: auto;
+            overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
+            scrollbar-gutter: stable;
             border: 1px solid #e2e8f0;
             border-radius: 10px;
             background: #ffffff;
             margin-bottom: 0.75rem;
         }
 
+        .repeatable-table {
+            width: 100%;
+            min-width: 100%;
+            max-width: 100%;
+            overflow: visible;
+        }
+
         .table-template table,
         .repeatable-table table {
             width: 100%;
-            min-width: 720px;
+            min-width: 100%;
             border-collapse: separate;
             border-spacing: 0;
+        }
+
+        /* Tables with six or fewer data columns share the available section width. */
+        .repeatable-table--compact table {
+            table-layout: fixed;
+        }
+
+        .repeatable-table--compact th,
+        .repeatable-table--compact td {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: normal;
+        }
+
+        .repeatable-table--compact th {
+            white-space: normal;
+        }
+
+        .repeatable-table--compact .rt-action-col {
+            width: 4.5rem;
+        }
+
+        .repeatable-table--compact .template-field,
+        .repeatable-table--compact .template-field input,
+        .repeatable-table--compact .template-field select,
+        .repeatable-table--compact .template-field textarea {
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        /* Wider tables keep readable controls and use .table-template scrolling. */
+        .repeatable-table--wide {
+            width: max-content;
+            min-width: 100%;
+            max-width: none;
+        }
+
+        .repeatable-table--wide table {
+            width: max-content;
+            min-width: 100%;
+            table-layout: auto;
+        }
+
+        .repeatable-table--wide th {
+            white-space: nowrap;
         }
 
         .table-template table thead tr,
@@ -687,6 +899,8 @@
             
             .main-wrapper {
                 margin-left: 0;
+                width: 100%;
+                max-width: 100%;
             }
             
             .sidebar-toggle {
@@ -841,10 +1055,80 @@
 </div>
 
 <script>
-    // Sidebar toggle for mobile
-    document.getElementById('sidebarToggle')?.addEventListener('click', function() {
-        document.querySelector('.sidebar')?.classList.toggle('open');
-    });
+    // Desktop: collapse the sidebar and remember the preference.
+    // Mobile: keep the existing off-canvas navigation behavior.
+    (function() {
+        const toggle = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.sidebar');
+        const collapseIcon = toggle?.querySelector('.icon-collapse');
+        const expandIcon = toggle?.querySelector('.icon-expand');
+        const desktopQuery = window.matchMedia('(min-width: 769px)');
+        const storageKey = 'sms-lab-sidebar-collapsed';
+
+        if (!toggle || !sidebar) return;
+
+        sidebar.querySelectorAll('.nav-link').forEach(function(link) {
+            const label = link.querySelector('.nav-title')?.textContent?.trim();
+            if (label) link.setAttribute('title', label);
+        });
+
+        const readPreference = function() {
+            try {
+                return localStorage.getItem(storageKey) === 'true';
+            } catch (error) {
+                return false;
+            }
+        };
+
+        const savePreference = function(collapsed) {
+            try {
+                localStorage.setItem(storageKey, String(collapsed));
+            } catch (error) {
+                // The layout still works when storage is unavailable.
+            }
+        };
+
+        const syncToggle = function() {
+            if (desktopQuery.matches) {
+                const collapsed = document.body.classList.contains('sidebar-collapsed');
+                toggle.setAttribute('aria-expanded', String(!collapsed));
+                toggle.setAttribute('aria-label', collapsed ? 'Expand navigation' : 'Collapse navigation');
+                toggle.setAttribute('title', collapsed ? 'Expand navigation' : 'Collapse navigation');
+                if (collapseIcon) collapseIcon.hidden = collapsed;
+                if (expandIcon) expandIcon.hidden = !collapsed;
+            } else {
+                const open = sidebar.classList.contains('open');
+                toggle.setAttribute('aria-expanded', String(open));
+                toggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+                toggle.setAttribute('title', open ? 'Close navigation' : 'Open navigation');
+                if (collapseIcon) collapseIcon.hidden = !open;
+                if (expandIcon) expandIcon.hidden = open;
+            }
+        };
+
+        const applyViewportState = function() {
+            sidebar.classList.remove('open');
+            document.body.classList.toggle(
+                'sidebar-collapsed',
+                desktopQuery.matches && readPreference()
+            );
+            syncToggle();
+        };
+
+        toggle.addEventListener('click', function() {
+            if (desktopQuery.matches) {
+                const collapsed = document.body.classList.toggle('sidebar-collapsed');
+                savePreference(collapsed);
+            } else {
+                sidebar.classList.toggle('open');
+            }
+
+            syncToggle();
+        });
+
+        desktopQuery.addEventListener?.('change', applyViewportState);
+        applyViewportState();
+    })();
 
     // Global page loader: shown on real link navigations and form submits,
     // hidden again automatically when the new page loads (or on bfcache restore).
