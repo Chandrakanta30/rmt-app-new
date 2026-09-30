@@ -15,9 +15,9 @@ class SectionModel extends Model
 
         $sections = $db->table('sections')
             ->whereIn('form_id', $formIds)
-            // ->where('table IS NOT NULL')
-            // ->orderBy('order')
-            // ->where("table IS NOT NULL")
+            ->orderBy('order', 'ASC')
+            ->orderBy('position', 'ASC')
+            ->orderBy('id', 'ASC')
             ->get()
             ->getResultArray();
 
@@ -31,7 +31,62 @@ class SectionModel extends Model
 
             $section['fields'] = $fields;
         }
+        // Break the reference created by the loop above. Without this, the
+        // following loops overwrite the last subsection with the previous
+        // section's data (for example, 2.2 "hen" becomes a second "cat").
+        unset($section);
 
-        return $sections;
+        // Form Builder represents a subsection by setting parent_section_id.
+        // Keep RMT's existing flat renderer, but place every parent immediately
+        // before its children and expose the relationship for the view to render.
+        $byParent = [];
+        $sectionIds = [];
+
+        foreach ($sections as $section) {
+            $sectionIds[(int) $section['id']] = true;
+            $parentId = (int) ($section['parent_section_id'] ?? 0);
+            $byParent[$parentId][] = $section;
+        }
+
+        $ordered = [];
+        $appendSection = static function (array $section, int $depth = 0, string $sectionNumber = '') use (&$appendSection, &$ordered, &$byParent, $sectionIds): void {
+            $parentId = (int) ($section['parent_section_id'] ?? 0);
+            // A missing parent is treated as a top-level section, so no section
+            // disappears if a builder record has been removed.
+            $section['is_subsection'] = $parentId > 0 && isset($sectionIds[$parentId]);
+            $section['section_depth'] = $depth;
+            $section['section_number'] = $sectionNumber;
+            $ordered[] = $section;
+
+            $children = $byParent[(int) $section['id']] ?? [];
+            $firstChildPosition = isset($children[0]['position']) ? (int) $children[0]['position'] : null;
+            $positionOffset = $firstChildPosition === 0 ? 1 : 0;
+            $childNumber = 0;
+            foreach ($children as $child) {
+                $childNumber++;
+                $storedPosition = $child['position'] ?? null;
+                $displayChildNumber = is_numeric($storedPosition)
+                    ? max(1, (int) $storedPosition + $positionOffset)
+                    : $childNumber;
+                $appendSection($child, $depth + 1, $sectionNumber . '.' . $displayChildNumber);
+            }
+        };
+
+        $rootNumber = 0;
+        foreach ($byParent[0] ?? [] as $section) {
+            $rootNumber++;
+            $appendSection($section, 0, (string) $rootNumber);
+        }
+
+        // Include records whose parent is not in this form's result set.
+        foreach ($sections as $section) {
+            $parentId = (int) ($section['parent_section_id'] ?? 0);
+            if ($parentId > 0 && !isset($sectionIds[$parentId])) {
+                $rootNumber++;
+                $appendSection($section, 0, (string) $rootNumber);
+            }
+        }
+
+        return $ordered;
     }
 }
