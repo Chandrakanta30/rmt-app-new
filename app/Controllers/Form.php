@@ -323,6 +323,10 @@ public function index($formKey = 'accuracyform')
                 'created_by'        => $createdBy ?: 'N/A',
                 'reviewed_at'       => $secReviewedAt ? date('d-m-Y H:i', strtotime($secReviewedAt)) : 'N/A',
                 'reviewed_by'       => $secReviewer ?: 'N/A',
+
+                // Unformatted, for comparing dates across a merged block's sections.
+                'created_at_raw'    => $createdAt ?: null,
+                'reviewed_at_raw'   => $secReviewedAt ?: null,
             ];
         }
 

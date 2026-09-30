@@ -135,6 +135,27 @@ $renderTemplateInput = static function (array $field, array $section, array $val
     return '<span class="template-field">(' . $label . ')<input type="' . esc($type) . '" class="form-control" value="' . esc($value) . '" name="' . $name . '"' . $required . $numericAttrs . $specialValidation . '></span>';
 };
 
+// The created/reviewed strip under a section 
+$renderMetaFooter = static function (array $meta, string $sectionTable = ''): string {
+    $cell = static function (string $label, string $value, bool $code = false): string {
+        $inner = $code
+            ? '<code style="background: #0f172a; padding: 3px 8px; border-radius: 6px; color: #38bdf8; font-family: \'JetBrains Mono\', monospace; font-size: 0.78rem; font-weight: 600; display: inline-block; border: 1px solid rgba(56, 189, 248, 0.2);">' . esc($value) . '</code>'
+            : '<span style="color: #334155; font-weight: 600;">' . esc($value) . '</span>';
+
+        return '<div><span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">'
+            . $label . '</span>' . $inner . '</div>';
+    };
+
+    return '<div class="section-meta-footer" style="margin-top: 1.5rem; padding: 1rem 1.25rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.82rem; color: #475569; box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8);">'
+        . '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.85rem 1.25rem; align-items: center;">'
+        . $cell('🗄️ Table Name', (string) ($meta['table_name'] ?? ($sectionTable ?: 'form_values')), true)
+        . $cell('📅 Created At', (string) ($meta['created_at'] ?? 'N/A'))
+        . $cell('👤 Created By', (string) ($meta['created_by'] ?? 'N/A'))
+        . $cell('📋 Reviewed At', (string) ($meta['reviewed_at'] ?? 'N/A'))
+        . $cell('✓ Reviewed By', (string) ($meta['reviewed_by'] ?? 'N/A'))
+        . '</div></div>';
+};
+
 // Parses one CSV line respecting quoted fields
 $parseCsvLine = static function (string $line): array {
     $cells  = [];
@@ -684,7 +705,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
         <?php
         // Sections sharing a merge_tag render inside one collapsible block card.
-        // but Each section keeps its own <form>, status, actions and footer.
+        // but Each section keeps its own <form>, status, actions and footer for now ...
         $blocks = \App\Models\SectionModel::groupByMergeTag($sections);
         $index = -1;
         ?>
@@ -695,6 +716,16 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 $firstNo = $index + 2;
                 $lastNo = $index + 1 + count($block['sections']);
                 $blockFieldCount = array_sum(array_map(static fn($s) => count($s['fields']), $block['sections']));
+
+                // One footer and one status for the whole block: earliest save,
+                // latest review, least advanced status of its sections.
+                $blockMeta = \App\Models\SectionModel::combineBlockMetadata($block['sections'], $sectionMetadata ?? []);
+                $blockBadge = [
+                    'submitted'    => ['bg-info text-dark', 'Saved / Submitted'],
+                    'under_review' => ['bg-warning text-dark', 'Under Review'],
+                    'rejected'     => ['bg-danger', 'Rejected'],
+                    'approved'     => ['bg-success', 'Approved'],
+                ][$blockMeta['status']] ?? ['bg-secondary', 'Draft'];
                 ?>
                 <div class="merged-block <?= $blockNo === 0 ? '' : 'is-collapsed' ?>">
                     <div class="merged-block-header" role="button" tabindex="0" aria-expanded="<?= $blockNo === 0 ? 'true' : 'false' ?>">
@@ -702,7 +733,10 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                             <span class="section-kicker">Sections <?= $firstNo ?>–<?= $lastNo ?> · Merged</span>
                             <h2><?= esc($block['title']) ?></h2>
                         </div>
-                        <span class="section-count"><?= count($block['sections']) ?> sections · <?= $blockFieldCount ?> fields</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge <?= $blockBadge[0] ?>" style="font-size: 0.82rem; padding: 0.45rem 0.75rem;"><?= $blockBadge[1] ?></span>
+                            <span class="section-count"><?= count($block['sections']) ?> sections · <?= $blockFieldCount ?> fields</span>
+                        </div>
                     </div>
                     <div class="merged-block-body">
             <?php endif; ?>
@@ -849,37 +883,15 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     </div>
                 <?php endif; ?>
 
-                <!-- Section Metadata Footer -->
-
-                <?php $meta = ($sectionMetadata[$section['id']] ?? []); ?>
-                <div class="section-meta-footer" style="margin-top: 1.5rem; padding: 1rem 1.25rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.82rem; color: #475569; box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8);">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.85rem 1.25rem; align-items: center;">
-                        <div>
-                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">🗄️ Table Name</span>
-                            <code style="background: #0f172a; padding: 3px 8px; border-radius: 6px; color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 600; display: inline-block; border: 1px solid rgba(56, 189, 248, 0.2);"><?= esc($meta['table_name'] ?? ($section['table'] ?: 'form_values')) ?></code>
-                        </div>
-                        <div>
-                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">📅 Created At</span>
-                            <span style="color: #334155; font-weight: 600;"><?= esc($meta['created_at'] ?? 'N/A') ?></span>
-                        </div>
-                        <div>
-                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">👤 Created By</span>
-                            <span style="color: #334155; font-weight: 600;"><?= esc($meta['created_by'] ?? 'N/A') ?></span>
-                        </div>
-                        <div>
-                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">📋 Reviewed At</span>
-                            <span style="color: #334155; font-weight: 600;"><?= esc($meta['reviewed_at'] ?? 'N/A') ?></span>
-                        </div>
-                        <div>
-                            <span style="font-weight: 700; color: #0f172a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px;">✓ Reviewed By</span>
-                            <span style="color: #334155; font-weight: 600;"><?= esc($meta['reviewed_by'] ?? 'N/A') ?></span>
-                        </div>
-                    </div>
-                </div>
+                <!-- Section Metadata Footer — a merged block prints one combined footer instead (below) -->
+                <?php if (!$isMerged): ?>
+                    <?= $renderMetaFooter($sectionMetadata[$section['id']] ?? [], $section['table'] ?? '') ?>
+                <?php endif; ?>
                 </fieldset>
             </form>
         <?php endforeach; ?>
             <?php if ($isMerged): ?>
+                        <?= $renderMetaFooter($blockMeta) ?>
                     </div>
                 </div>
             <?php endif; ?>
