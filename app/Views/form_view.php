@@ -654,8 +654,20 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
         <?php foreach ($sections as $index => $section): ?>
-            <?php $layout = strtolower($section['layout'] ?? ''); ?>
-            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?>" method="post" action="<?= site_url('form/submit') ?>">
+            <?php
+            $layout = strtolower($section['layout'] ?? '');
+            $isSubsection = !empty($section['is_subsection']);
+            $sectionDepth = (int) ($section['section_depth'] ?? 0);
+            $sectionNumber = $section['section_number'] ?? (string) ($index + 1);
+            $nextSection = $sections[$index + 1] ?? null;
+            ?>
+            <?php if (!$isSubsection): ?>
+                <div class="section-tree">
+            <?php endif; ?>
+            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?> <?= $isSubsection ? 'subsection-panel' : '' ?>"
+                  data-parent-section="<?= esc($section['parent_section_id'] ?? '') ?>"
+                  style="--section-depth: <?= $sectionDepth ?>"
+                  method="post" action="<?= site_url('form/submit') ?>">
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
@@ -675,7 +687,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
                 <div class="section-panel-header" role="button" tabindex="0" aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>">
                     <div>
-                        <span class="section-kicker">Section <?= $index + 1 ?></span>
+                        <span class="section-kicker"><?= esc($sectionNumber) ?><?= $isSubsection ? ' Subsection' : ' Section' ?></span>
                         <h2><?= esc($section['title']) ?></h2>
                     </div>
                     <div class="d-flex align-items-center gap-2">
@@ -820,6 +832,9 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 </div>
                 </fieldset>
             </form>
+            <?php if (!$nextSection || empty($nextSection['is_subsection'])): ?>
+                </div>
+            <?php endif; ?>
         <?php endforeach; ?>
     </div>
 
@@ -843,7 +858,9 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 <span class="status-label">Status:</span>
                 <span class="status-badge status-<?= esc($currentStatus) ?>"><?= esc(workflow_status_label($currentStatus)) ?></span>
 
+              <?php if (!$viewMode && !($readonly ?? false)): ?>
                 <?= workflow_action_buttons($form) ?>
+            <?php endif; ?>
 
                 <a class="btn btn-secondary" href="<?= site_url('forms/logs/' . $form['id']) ?>">Audit log</a>
             </div>
@@ -1033,6 +1050,46 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
     .section-panel.is-collapsed .section-fieldset {
         display: none;
+    }
+
+    /* parent_section_id is created by Form Builder for subsections. Keep the
+       child visually within its parent section flow instead of presenting it
+       as another top-level RMT section. */
+    .section-tree {
+        margin-bottom: 1.25rem;
+        border: 1px solid #dbe3ed;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .section-tree .section-panel {
+        width: 100%;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .section-tree .section-panel + .section-panel {
+        border-top: 1px solid #dbe3ed;
+    }
+
+    .section-tree .section-panel.subsection-panel {
+        padding-left: calc(1.5rem * var(--section-depth, 1));
+        border-left: 4px solid #94a3b8;
+        background: #f8fafc;
+    }
+
+    .section-tree .section-panel.subsection-panel .section-panel-header {
+        background: #eef2f7;
+    }
+
+    @media (max-width: 768px) {
+        .section-tree .section-panel.subsection-panel {
+            padding-left: 0.75rem;
+        }
     }
 
     .rt-add-wrap {
