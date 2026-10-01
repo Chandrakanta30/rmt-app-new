@@ -15,8 +15,11 @@ class SectionModel extends Model
 
         $sections = $db->table('sections')
             ->whereIn('form_id', $formIds)
-            ->orderBy('order', 'ASC')
+            // Form Builder persists the visible section/subsection sequence in
+            // `position`.  `order` is a legacy creation/order value and can
+            // remain stale after a builder reorder.
             ->orderBy('position', 'ASC')
+            ->orderBy('order', 'ASC')
             ->orderBy('id', 'ASC')
             ->get()
             ->getResultArray();
@@ -59,16 +62,10 @@ class SectionModel extends Model
             $ordered[] = $section;
 
             $children = $byParent[(int) $section['id']] ?? [];
-            $firstChildPosition = isset($children[0]['position']) ? (int) $children[0]['position'] : null;
-            $positionOffset = $firstChildPosition === 0 ? 1 : 0;
             $childNumber = 0;
             foreach ($children as $child) {
                 $childNumber++;
-                $storedPosition = $child['position'] ?? null;
-                $displayChildNumber = is_numeric($storedPosition)
-                    ? max(1, (int) $storedPosition + $positionOffset)
-                    : $childNumber;
-                $appendSection($child, $depth + 1, $sectionNumber . '.' . $displayChildNumber);
+                $appendSection($child, $depth + 1, $sectionNumber . '.' . $childNumber);
             }
         };
 
