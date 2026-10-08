@@ -151,27 +151,6 @@ public function index($formKey = 'accuracyform')
         $viewOnly = ($request->getGet('mode') === 'view');
 
     $sections = $sectionModel->getSectionsWithFields($formIds);
-
-    foreach ($sections as $section) {
-        // Read form_values first so saved data reflects back
-        $row = $db->table('form_values')
-            ->where('section_id', $section['id'])
-            ->where('asr_id', $asr)
-            ->orderBy('id', 'DESC')
-            ->get()
-            ->getRowArray();
-
-        if ($row) {
-            $dataValues[$section['id']] = json_decode($row['values'], true);
-            continue;
-        }
-
-        // REMOVED: Fallback to section table - we only use form_values now
-        // All data is stored in form_values table
-        $dataValues = [];
-
-        $sections = $sectionModel->getSectionsWithFields($formIds);
-
         // Check if form is approved for edit access.
         // ASR-scoped entries are always editable — the form template's own
         // approval workflow only gates direct (non-ASR) access to the form.
@@ -337,18 +316,7 @@ public function index($formKey = 'accuracyform')
             'breadcrumb' => $form['name'] ?? 'Form',
         ]);
     }
-
-    return view('form_view', [
-        'form' => $form,
-        'sections' => $sections,
-        'values' => $dataValues,
-        'sectionMetadata' => $sectionMetadata ?? [],
-        'breadcrumb' => $form['name'] ?? 'Form',
-        'readonly'=>false,
-        'canEdit' => true,
-        'asrId' => $asr
-    ]);
-}
+    
     public function submit()
     {
         $request = service('request');

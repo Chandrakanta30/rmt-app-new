@@ -412,7 +412,10 @@ $renderTableTemplate = static function (string $template, array $section, array 
         foreach ($rowCells as $c) {
             $attrs = ($c['colSpan'] > 1 ? ' colspan="' . $c['colSpan'] . '"' : '')
                 . ($c['rowSpan'] > 1 ? ' rowspan="' . $c['rowSpan'] . '"' : '');
-            $out .= '<td' . $attrs . '>' . $renderCell($c['raw'], $recValues, $rowIndex) . '</td>';
+            $cellClass = preg_match('/^\[[^\]]+\|label(?:\||\])/i', trim($c['raw']))
+                ? ' class="rt-label-cell"'
+                : '';
+            $out .= '<td' . $cellClass . $attrs . '>' . $renderCell($c['raw'], $recValues, $rowIndex) . '</td>';
         }
 
         return $out;
@@ -497,7 +500,11 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $totalInstances = $rowInstances;
     }
 
-    $html  = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $totalInstances . '">';
+    $tableSizeClass = $totalCols <= 6
+        ? 'repeatable-table--compact'
+        : 'repeatable-table--wide';
+
+    $html  = '<div class="repeatable-table ' . $tableSizeClass . '" data-section="' . esc($section['id']) . '" data-next-index="' . $totalInstances . '" data-column-count="' . $totalCols . '">';
     $html .= '<table>';
     $html .= '<thead>';
     foreach ($headerGrid as $hr => $cells) {
@@ -654,8 +661,30 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
         <?php foreach ($sections as $index => $section): ?>
-            <?php $layout = strtolower($section['layout'] ?? ''); ?>
-            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?>" method="post" action="<?= site_url('form/submit') ?>">
+            <?php
+            $layout = strtolower($section['layout'] ?? '');
+            $formatting = $section['formatting'] ?? [
+                'font_family' => 'times_new_roman',
+                'font_size_pt' => 12,
+                'table_header_font_size_pt' => 12,
+                'table_label_font_size_pt' => 12,
+                'text_alignment' => 'justify',
+            ];
+            $sectionHeaderFontSize = max(6, min(30, (int) ($formatting['table_header_font_size_pt'] ?? 12)));
+            $sectionLabelFontSize = max(6, min(30, (int) ($formatting['table_label_font_size_pt'] ?? 12)));
+            $sectionTextAlignment = in_array(
+                $formatting['text_alignment'] ?? 'justify',
+                ['left', 'center', 'right', 'justify'],
+                true
+            ) ? $formatting['text_alignment'] : 'justify';
+            $sectionFormattingStyle = sprintf(
+                '--section-font-family:"Times New Roman", Times, serif;--section-font-size:12pt;--section-table-header-font-size:%dpt;--section-table-label-font-size:%dpt;--section-text-align:%s;',
+                $sectionHeaderFontSize,
+                $sectionLabelFontSize,
+                $sectionTextAlignment
+            );
+            ?>
+            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?>" style="<?= esc($sectionFormattingStyle, 'attr') ?>" method="post" action="<?= site_url('form/submit') ?>">
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
