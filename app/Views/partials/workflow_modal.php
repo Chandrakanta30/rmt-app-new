@@ -100,7 +100,7 @@
             <div id="wfPasswordGroup" style="display: none; margin-top: 1rem;">
                 <label for="wfPassword">Password <span style="color: #b42318;">(required)</span></label>
                 <input type="password" name="password" id="wfPassword" placeholder="Enter your password to sign..." autocomplete="current-password">
-                <div class="wf-error" id="wfPasswordError">Password is required to sign and approve.</div>
+                <div class="wf-error" id="wfPasswordError">Password is required.</div>
             </div>
 
             <div class="wf-dialog-actions">
@@ -146,25 +146,27 @@
             remark.placeholder = remarkRequired
                 ? 'Explain what needs to change, so it can be corrected and resubmitted...'
                 : 'Add a note for the form history...';
+            if (remarkRequired) {
+                remark.setAttribute('required', 'required');
+            } else {
+                remark.removeAttribute('required');
+            }
             confirm.className = 'btn ' + (remarkRequired ? 'btn-danger' : 'btn-primary');
-            confirm.textContent = 'Confirm';
+            confirm.textContent = d.wfAction === 'send_for_review'
+                ? 'Sign and Submit for Review'
+                : (d.wfAction === 'review_complete' || d.wfAction === 'approve'
+                    ? 'Sign and Approve'
+                    : 'Sign and Confirm');
 
             if (passwordGroup) {
-                if (d.wfAction === 'review_complete') {
-                    passwordGroup.style.display = 'block';
-                    passwordInput.value = '';
-                    passwordInput.setAttribute('required', 'required');
-                    confirm.textContent = 'Sign and Approve';
-                } else {
-                    passwordGroup.style.display = 'none';
-                    passwordInput.value = '';
-                    passwordInput.removeAttribute('required');
-                }
+                passwordGroup.style.display = 'block';
+                passwordInput.value = '';
+                passwordInput.setAttribute('required', 'required');
             }
             if (passwordError) passwordError.style.display = 'none';
 
             backdrop.setAttribute('open', '');
-            if (d.wfAction === 'review_complete' && passwordInput) {
+            if (passwordInput) {
                 passwordInput.focus();
             } else {
                 remark.focus();
@@ -199,7 +201,7 @@
                 error.style.display = 'none';
             }
 
-            if (actionIn.value === 'review_complete' && passwordInput && passwordInput.value.trim() === '') {
+            if (passwordInput && passwordInput.value.trim() === '') {
                 hasError = true;
                 if (passwordError) passwordError.style.display = 'block';
                 passwordInput.focus();

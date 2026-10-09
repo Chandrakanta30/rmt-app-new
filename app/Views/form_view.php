@@ -36,9 +36,7 @@ $parseFieldOptions = static function ($raw): array {
     $options = [];
     foreach ($decoded as $opt) {
         if (is_array($opt)) {
-            // Builder stores {id, label} where `id` is the value to save and
-            // `label` is shown. Prefer id (or an explicit `value`) for the value
-            // so we never accidentally save the label as the stored value.
+
             $value = (string) ($opt['value'] ?? $opt['id'] ?? $opt['label'] ?? '');
             $label = (string) ($opt['label'] ?? $opt['value'] ?? $opt['id'] ?? $value);
         } else {
@@ -55,10 +53,7 @@ $parseFieldOptions = static function ($raw): array {
 };
 
 // Renders one form control for a field.
-// $rowIndex: when set (repeatable table rows) the input name is indexed
-//   sections[sid][field][0], [1], ... so each row submits as its own record
-//   and an unchecked checkbox simply leaves a gap instead of shifting rows.
-// $rowValues: the saved values for this specific row (used to prefill).
+
 $renderTemplateInput = static function (array $field, array $section, array $values, ?int $rowIndex = null, ?array $rowValues = null) use ($specialCharAttrs, $parseFieldOptions): string {
     $validation = json_decode($field['validation'] ?? 'null', true) ?? [];
 
@@ -169,9 +164,7 @@ $parseCsvLine = static function (string $line): array {
 };
 
 // Renders a CSV table template as an HTML <table>
-// Cell syntax: plain text → <th>/<td> label
-//              [fieldName] or [fieldName|input] → input field
-//              [fieldName|label] or [fieldName|header] → read-only text
+
 $renderTableTemplate = static function (string $template, array $section, array $values) use ($renderTemplateInput, $parseCsvLine): string {
     $fieldMap = [];
 
@@ -179,45 +172,55 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $fieldMap[$field['name']] = $field;
     }
 
-    // Renders a single cell, prefilling input values from $rowValues (this row's saved data).
-    // $rowIndex indexes the input name for repeatable rows (null = single record).
-    $renderCell = static function (string $raw, array $rowValues, ?int $rowIndex) use ($fieldMap, $section, $values, $renderTemplateInput): string {
+    $resolveInputField = static function (string $raw) use ($fieldMap): ?array {
+        $t = trim($raw);
+
+        $looksLikeKey = static fn(string $k): bool => (bool) preg_match('/^[A-Za-z][\w-]*$/', $k);
+
+        $key = null;
+        if (preg_match('/^\{(.+)\}$/', $t, $m)) {
+            $key = trim($m[1]);
+        } elseif (preg_match('/^\[(.+)\]$/', $t, $m)) {
+            $parts = array_map('trim', explode('|', $m[1]));
+            $type  = strtolower($parts[1] ?? 'input');
+            if ($type === 'label' || $type === 'header') {
+                return null; // explicitly static
+            }
+            $key = $parts[0];
+        } else {
+            // Bare word that exactly matches a saved field (e.g. "input_1").
+            return $fieldMap[$t] ?? null;
+        }
+
+        if ($key === null || $key === '' || !$looksLikeKey($key)) {
+            return null;
+        }
+
+        if (isset($fieldMap[$key])) {
+            return $fieldMap[$key];
+        }
+
+        // Orphan token -> synthesize a text input keyed by the token name.
+        return ['name' => $key, 'label' => $key, 'type' => 'text', 'validation' => null, 'options' => null];
+    };
+
+    $renderCell = static function (string $raw, array $rowValues, ?int $rowIndex) use ($resolveInputField, $section, $values, $renderTemplateInput): string {
         $trimmed = trim($raw);
 
         if ($trimmed === '') {
             return '';
         }
 
-        // {fieldName} curly-brace syntax (e.g. {input_1})
-        if (preg_match('/^\{(.+)\}$/', $trimmed, $m)) {
-            $field = $fieldMap[trim($m[1])] ?? null;
-            if ($field) {
-                return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
-            }
-        }
-
-        // [fieldName] or [fieldName|type] syntax
-        if (preg_match('/^\[(.+)\]$/', $trimmed, $m)) {
-            $parts    = array_map('trim', explode('|', $m[1]));
-            $fieldKey = $parts[0];
-            $cellType = strtolower($parts[1] ?? 'input');
-
-            if ($cellType === 'label' || $cellType === 'header') {
-                return esc($fieldKey);
-            }
-
-            $field = $fieldMap[$fieldKey] ?? null;
-
-            if ($field) {
-                return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
-            }
-        }
-
-        // Plain field name without brackets (e.g. "input_1" stored directly)
-        $field = $fieldMap[$trimmed] ?? null;
-
-        if ($field) {
+        $field = $resolveInputField($raw);
+        if ($field !== null) {
             return $renderTemplateInput($field, $section, $values, $rowIndex, $rowValues);
+        }
+
+        // Static cell: strip a [text|label]/[text|header] wrapper down to its text.
+        if (preg_match('/^\[(.+)\]$/', $trimmed, $m)) {
+            $parts = array_map('trim', explode('|', $m[1]));
+
+            return esc($parts[0]);
         }
 
         return esc($trimmed);
@@ -251,9 +254,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         return '';
     }
 
-    // Normalize saved data into a list of row objects:
-    //  - repeatable table  -> [ {..row0..}, {..row1..} ]
-    //  - single record     -> [ {..fields..} ]
+
     $saved     = $values[$section['id']] ?? [];
     $savedRows = [];
     if (is_array($saved) && !empty($saved)) {
@@ -261,34 +262,16 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $savedRows = $isList ? array_values($saved) : [$saved];
     }
 
-    // Row-action mode for this section:
-    //   editable -> user can add / delete rows (shows + Add Row and the Action column)
-    //   group    -> multiple rows saved together, but no add/delete UI
-    //   singular -> a single record; anything else behaves the same (no add UI)
+
     $actionFlag = strtolower($section['action_flag'] ?? '');
     $editable   = $actionFlag === 'editable';
     $group      = $actionFlag === 'group';
 
-    // Extract the backing field name of an input cell ([field|...] / {field} /
-    // bare name); returns null for label/header/plain-text cells.
-    $cellFieldName = static function (string $raw) use ($fieldMap): ?string {
-        $t = trim($raw);
-        if (preg_match('/^\{(.+)\}$/', $t, $m)) {
-            $k = trim($m[1]);
 
-            return isset($fieldMap[$k]) ? $k : null;
-        }
-        if (preg_match('/^\[(.+)\]$/', $t, $m)) {
-            $parts = array_map('trim', explode('|', $m[1]));
-            $type  = strtolower($parts[1] ?? 'input');
-            if ($type === 'label' || $type === 'header') {
-                return null;
-            }
+    $cellFieldName = static function (string $raw) use ($resolveInputField): ?string {
+        $field = $resolveInputField($raw);
 
-            return isset($fieldMap[$parts[0]]) ? $parts[0] : null;
-        }
-
-        return isset($fieldMap[$t]) ? $t : null;
+        return $field['name'] ?? null;
     };
 
     // ---- Header rows: usually 1, but support a STACKED (multi-row) header -----
@@ -328,13 +311,12 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $isSingleRow = count($bodyLines) === 1;
 
     // group (non-editable) repeats a single-row template once per saved row;
-    // singular / unset / multi-row matrices render once. Editable tables use the
-    // block-aware path below instead.
+
     $repeatRows   = $group && $isSingleRow;
     $rowInstances = $repeatRows ? max(1, count($savedRows)) : 1;
 
     // Build a grid of body cells with their resolved column position and spans so
-    // both block detection and rendering agree on the geometry.
+
     $grid    = [];
     $covered = [];
     foreach ($bodyLines as $r => $line) {
@@ -362,11 +344,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
     }
     $numBodyRows = count($bodyLines);
 
-    // A body row is a "separator" (a full-width sub-header, e.g. a
-    // [Method precision|header|c2] divider) when NONE of its cells is backed by
-    // an input field. Separators render across the whole table, are never part
-    // of a repeatable block, and get no "+ Add Row" / delete control — they just
-    // break the data rows into independent groups.
+
     $rowIsSeparator = [];
     for ($r = 0; $r < $numBodyRows; $r++) {
         $hasInput = false;
@@ -379,9 +357,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $rowIsSeparator[$r] = !$hasInput;
     }
 
-    // Column geometry. The body can have MORE columns than the header row when a
-    // header cell spans several body columns. Use the widest of header vs. body so the
-    // <thead>, the data rows and the full-width separators/Add-Row all line up.
+
     $bodyCols = 0;
     foreach ($grid as $rowCells) {
         foreach ($rowCells as $c) {
@@ -389,9 +365,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         }
     }
 
-    // Build the header grid honoring colspan/rowspan across ALL header rows, so a
-    // grouping headerspans its columns and the sub-header row
-    // sits beneath it — matching the builder preview.
+
     $headerGrid = [];
     $headerCols = 0;
     $hCovered   = [];
@@ -438,20 +412,17 @@ $renderTableTemplate = static function (string $template, array $section, array 
         foreach ($rowCells as $c) {
             $attrs = ($c['colSpan'] > 1 ? ' colspan="' . $c['colSpan'] . '"' : '')
                 . ($c['rowSpan'] > 1 ? ' rowspan="' . $c['rowSpan'] . '"' : '');
-            $out .= '<td' . $attrs . '>' . $renderCell($c['raw'], $recValues, $rowIndex) . '</td>';
+            $cellClass = preg_match('/^\[[^\]]+\|label(?:\||\])/i', trim($c['raw']))
+                ? ' class="rt-label-cell"'
+                : '';
+            $out .= '<td' . $cellClass . $attrs . '>' . $renderCell($c['raw'], $recValues, $rowIndex) . '</td>';
         }
 
         return $out;
     };
 
     // ---- Editable: partition body rows into blocks bound together by rowspans ----
-    // A block is a maximal run of consecutive rows where no rowspan reaches past
-    // its end. Each block becomes one independently repeatable unit (its own
-    // "+ Add Row" button); cloning a block duplicates ALL of its rows so a
-    // spanning cell (e.g. a rowspan=3 cell over rows 1-3) is reproduced intact.
-    // $segments is the ordered render plan: separator rows and repeatable blocks
-    // interleaved in the order they appear, so a "Method precision" divider stays
-    // between its groups instead of being swallowed into one.
+
     $blocks      = [];
     $blockFields = [];
     $segments    = [];
@@ -503,10 +474,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
             $r = $end + 1;
         }
 
-        // Route each saved record to the block it belongs to so an edit-load
-        // repeats each block once per saved instance. The submit transpose fills
-        // EVERY field key (empty string outside the block), so match on a NON-EMPTY
-        // value — each saved instance only fills its own block's fields.
+
         $blockInstances = array_fill(0, count($blocks), []);
         foreach ($savedRows as $rec) {
             if (!is_array($rec)) {
@@ -523,7 +491,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
         }
 
         // Total instances rendered = the starting point for the "Add Row" JS so
-        // cloned block instances get fresh, section-unique row indexes.
+        // the client keeps numbering newly-added rows correctly.
         $totalInstances = 0;
         foreach ($blocks as $bi => $b) {
             $totalInstances += max(1, count($blockInstances[$bi]));
@@ -532,7 +500,11 @@ $renderTableTemplate = static function (string $template, array $section, array 
         $totalInstances = $rowInstances;
     }
 
-    $html  = '<div class="repeatable-table" data-section="' . esc($section['id']) . '" data-next-index="' . $totalInstances . '">';
+    $tableSizeClass = $totalCols <= 6
+        ? 'repeatable-table--compact'
+        : 'repeatable-table--wide';
+
+    $html  = '<div class="repeatable-table ' . $tableSizeClass . '" data-section="' . esc($section['id']) . '" data-next-index="' . $totalInstances . '" data-column-count="' . $totalCols . '">';
     $html .= '<table>';
     $html .= '<thead>';
     foreach ($headerGrid as $hr => $cells) {
@@ -552,7 +524,7 @@ $renderTableTemplate = static function (string $template, array $section, array 
     $html .= '</thead>';
 
     if ($editable) {
-        $rowIndex = 0; // section-unique index; one per block instance, shared by its rows
+        $rowIndex = 0; 
         foreach ($segments as $seg) {
             // --- Separator: a full-width static sub-header (no block, no Add Row) ---
             if ($seg['type'] === 'sep') {
@@ -630,10 +602,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         $fieldMap[$field['name']] = $field;
     }
 
-    // Inline fields can be written either way:
-    //   {field}            — classic builder (/forms/create)
-    //   [field]            — drag & drop builder (/forms/builder)
-    //   [field|label] etc. — modifiers; label/header render as static text
+     
     return preg_replace_callback('/\{([^}]+)\}|\[([^\]]+)\]/', static function ($matches) use ($fieldMap, $section, $values, $renderTemplateInput) {
         // group 1 = {...}, group 2 = [...]
         $token = ($matches[1] ?? '') !== '' ? $matches[1] : ($matches[2] ?? '');
@@ -651,7 +620,14 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             return $renderTemplateInput($fieldMap[$fieldKey], $section, $values);
         }
 
-        // Unknown token -> leave it exactly as written
+
+        if (preg_match('/^[A-Za-z][\w-]*$/', $fieldKey)) {
+            $synthetic = ['name' => $fieldKey, 'label' => $fieldKey, 'type' => 'text', 'validation' => null, 'options' => null];
+
+            return $renderTemplateInput($synthetic, $section, $values);
+        }
+
+        // Anything else (incidental prose brackets) -> leave exactly as written.
         return $matches[0];
     }, $template);
 };
@@ -685,12 +661,34 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
         <?php foreach ($sections as $index => $section): ?>
-            <?php $layout = strtolower($section['layout'] ?? ''); ?>
-            <form class="section-panel" method="post" action="<?= site_url('form/submit') ?>">
+            <?php
+            $layout = strtolower($section['layout'] ?? '');
+            $formatting = $section['formatting'] ?? [
+                'font_family' => 'times_new_roman',
+                'font_size_pt' => 12,
+                'table_header_font_size_pt' => 12,
+                'table_label_font_size_pt' => 12,
+                'text_alignment' => 'justify',
+            ];
+            $sectionHeaderFontSize = max(6, min(30, (int) ($formatting['table_header_font_size_pt'] ?? 12)));
+            $sectionLabelFontSize = max(6, min(30, (int) ($formatting['table_label_font_size_pt'] ?? 12)));
+            $sectionTextAlignment = in_array(
+                $formatting['text_alignment'] ?? 'justify',
+                ['left', 'center', 'right', 'justify'],
+                true
+            ) ? $formatting['text_alignment'] : 'justify';
+            $sectionFormattingStyle = sprintf(
+                '--section-font-family:"Times New Roman", Times, serif;--section-font-size:12pt;--section-table-header-font-size:%dpt;--section-table-label-font-size:%dpt;--section-text-align:%s;',
+                $sectionHeaderFontSize,
+                $sectionLabelFontSize,
+                $sectionTextAlignment
+            );
+            ?>
+            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?>" style="<?= esc($sectionFormattingStyle, 'attr') ?>" method="post" action="<?= site_url('form/submit') ?>">
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
-
+                <input type="hidden" name="action_flag[<?= esc($section['id']) ?>]"value="<?= esc($section['action_flag'] ?? '') ?>">
                 <?php if (!empty($asrId)): ?>
                     <input type="hidden" name="asr_id[<?= esc($section['id']) ?>]" value="<?= esc($asrId) ?>">
                 <?php endif; ?>
@@ -704,8 +702,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 $isApproved = ($secStatus === 'approved');
                 ?>
 
-                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly || $isApproved) ? 'disabled' : '' ?>>
-                <div class="section-panel-header">
+                <div class="section-panel-header" role="button" tabindex="0" aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>">
                     <div>
                         <span class="section-kicker">Section <?= $index + 1 ?></span>
                         <h2><?= esc($section['title']) ?></h2>
@@ -725,6 +722,8 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                         <span class="section-count"><?= count($section['fields']) ?> fields</span>
                     </div>
                 </div>
+
+                <fieldset class="section-fieldset" style="border:0;margin:0;padding:0;min-width:0;" <?= ($readonly || $isApproved) ? 'disabled' : '' ?>>
 
                 <?php if ($secStatus === 'rejected' && !empty($rejectionComment)): ?>
                     <div class="alert alert-danger d-flex align-items-start gap-2 mb-3 mt-2" style="border-radius: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #b91c1c;">
@@ -782,15 +781,26 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     <div class="section-actions d-flex gap-2 justify-content-end align-items-center mt-3 pt-3 border-top">
                         <?php if ($secStatus === 'draft' || $secStatus === 'rejected' || empty($secStatus)): ?>
                             <!-- PART 1: BEGINNING -> Save as Draft & Save -->
-                            <button class="btn btn-outline-secondary px-3 font-weight-600" type="submit" name="save_type[<?= $section['id'] ?>]" value="draft">
+                            <button class="btn btn-outline-secondary px-3 font-weight-600"
+                                    type="<?= !empty($asrId) ? 'button' : 'submit' ?>"
+                                    name="save_type[<?= $section['id'] ?>]"
+                                    value="draft"
+                                    <?= !empty($asrId) ? 'data-asr-sign-action="save" data-asr-save-type="draft" data-asr-label="Save as Draft"' : '' ?>>
                                 💾 Save as Draft
                             </button>
-                            <button class="btn btn-primary px-4 font-weight-600" type="submit" name="save_type[<?= $section['id'] ?>]" value="submit">
+                            <button class="btn btn-primary px-4 font-weight-600"
+                                    type="<?= !empty($asrId) ? 'button' : 'submit' ?>"
+                                    name="save_type[<?= $section['id'] ?>]"
+                                    value="submit"
+                                    <?= !empty($asrId) ? 'data-asr-sign-action="save" data-asr-save-type="submit" data-asr-label="Save and Submit"' : '' ?>>
                                 ✔ Save
                             </button>
                         <?php elseif ($secStatus === 'submitted'): ?>
                             <!-- PART 2: AFTER SAVE -> Draft hidden. Review option visible -->
-                            <button type="submit" class="btn btn-warning px-4 font-weight-600 text-dark" formaction="<?= site_url('form/section-review') ?>">
+                            <button type="<?= !empty($asrId) ? 'button' : 'submit' ?>"
+                                    class="btn btn-warning px-4 font-weight-600 text-dark"
+                                    formaction="<?= site_url('form/section-review') ?>"
+                                    <?= !empty($asrId) ? 'data-asr-sign-action="review" data-asr-label="Submit for Review"' : '' ?>>
                                 📩 Submit for Review
                             </button>
                             <input type="hidden" name="section_id" value="<?= $section['id'] ?>">
@@ -871,6 +881,30 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     <?php endif; ?>
 </div>
 
+<?php if (!empty($asrId)): ?>
+<div class="wf-backdrop" id="asrSignBackdrop" role="dialog" aria-modal="true" aria-labelledby="asrSignTitle">
+    <div class="wf-dialog">
+        <h2 id="asrSignTitle">Confirm ASR action</h2>
+        <p class="wf-sub" id="asrSignSub"></p>
+
+        <div id="asrSignCommentGroup" style="display:none;">
+            <label for="asrSignComment" id="asrSignCommentLabel">Comment <span id="asrSignCommentHint">(required)</span></label>
+            <textarea id="asrSignComment" placeholder="Explain why this ASR section is being rejected..."></textarea>
+        </div>
+
+        <div style="margin-top: 1rem;">
+            <label for="asrSignPassword">Password <span style="color:#b42318;">(required)</span></label>
+            <input type="password" id="asrSignPassword" placeholder="Enter your password to sign..." autocomplete="current-password" required>
+        </div>
+
+        <div class="wf-dialog-actions">
+            <button type="button" class="btn btn-secondary" id="asrSignCancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="asrSignConfirm">Sign and Confirm</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <?= $this->include('partials/workflow_modal') ?>
 <?= $this->endSection() ?>
 
@@ -908,17 +942,12 @@ $renderSectionTemplate = static function (string $template, array $section, arra
             });
         }
 
-        // Re-point a cloned row's field names to a fresh row index, e.g.
-        // sections[5][qty][2] -> sections[5][qty][7]. Only the trailing [n] changes.
         function reindexRow(row, index) {
             row.querySelectorAll('[name]').forEach(function(el) {
                 el.name = el.name.replace(/\[\d+\]$/, '[' + index + ']');
             });
         }
 
-        // The body is partitioned into blocks (one <tbody class="rt-block"> each).
-        // A block is the repeatable unit: data-block-rows is how many template rows
-        // it spans, so a rowspan group (e.g. 3 rows) clones/deletes as one unit.
         function instanceRows(blockTbody) {
             // The last instance = the last data-block-rows .rt-row elements.
             var rows = Array.prototype.slice.call(blockTbody.querySelectorAll('.rt-row'));
@@ -1012,6 +1041,29 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     })();
 </script>
 <style>
+    .section-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    cursor: pointer;
+    user-select: none;
+    }
+
+    .section-panel-header > .d-flex {
+    margin-left: auto;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    }
+
+    .section-panel-header:hover {
+        background: #f8fafc;
+    }
+
+    .section-panel.is-collapsed .section-fieldset {
+        display: none;
+    }
+
     .rt-add-wrap {
         margin-top: 10px;
     }
@@ -1238,10 +1290,14 @@ $renderSectionTemplate = static function (string $template, array $section, arra
     }
 
     .view-mode-overlay {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        z-index: 10;
+    position: absolute;
+    top: 72px;
+    right: 12px;
+    z-index: 10;
+    }
+    .section-panel-header > .d-flex {
+    margin-left: auto;
+    flex-wrap: nowrap;
     }
 
     .view-mode-badge {
@@ -1319,23 +1375,72 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 </style>
 
 <script>
-function handleSectionDecision(sectionId, asrId, decision) {
-    if (decision === 'reject') {
-        const comment = prompt('Please enter the reason/comment for rejecting this section:');
-        if (comment === null) return;
-        if (comment.trim() === '') {
-            alert('A reason/comment is required to reject a section.');
-            return;
-        }
-        submitDecisionForm(sectionId, asrId, 'reject', comment.trim());
-    } else {
-        if (confirm('Are you sure you want to ACCEPT and approve this section?')) {
-            submitDecisionForm(sectionId, asrId, 'accept', '');
-        }
-    }
+let asrPendingAction = null;
+
+function openAsrSignModal(action) {
+    const backdrop = document.getElementById('asrSignBackdrop');
+    const title = document.getElementById('asrSignTitle');
+    const sub = document.getElementById('asrSignSub');
+    const commentGroup = document.getElementById('asrSignCommentGroup');
+    const comment = document.getElementById('asrSignComment');
+    const commentHint = document.getElementById('asrSignCommentHint');
+    const password = document.getElementById('asrSignPassword');
+    const confirmButton = document.getElementById('asrSignConfirm');
+
+    if (!backdrop) return;
+
+    asrPendingAction = action;
+    title.textContent = action.label;
+    sub.textContent = 'ASR section signature confirmation';
+    comment.value = '';
+    password.value = '';
+
+    const commentRequired = action.type === 'decision' && action.decision === 'reject';
+    comment.required = commentRequired;
+    commentGroup.style.display = commentRequired ? 'block' : 'none';
+    commentHint.textContent = '(required)';
+
+    confirmButton.className = 'btn ' + (commentRequired ? 'btn-danger' : 'btn-primary');
+    confirmButton.textContent = action.type === 'decision' && action.decision === 'accept'
+        ? 'Sign and Approve'
+        : 'Sign and Confirm';
+
+    backdrop.setAttribute('open', '');
+    password.focus();
 }
 
-function submitDecisionForm(sectionId, asrId, decision, comment) {
+function closeAsrSignModal() {
+    const backdrop = document.getElementById('asrSignBackdrop');
+    if (backdrop) backdrop.removeAttribute('open');
+    asrPendingAction = null;
+}
+
+function handleSectionDecision(sectionId, asrId, decision) {
+    if (!document.getElementById('asrSignBackdrop')) {
+        if (decision === 'reject') {
+            const comment = prompt('Please enter the reason/comment for rejecting this section:');
+            if (comment === null) return;
+            if (comment.trim() === '') {
+                alert('A reason/comment is required to reject a section.');
+                return;
+            }
+            submitDecisionForm(sectionId, asrId, 'reject', comment.trim(), '');
+        } else if (confirm('Are you sure you want to ACCEPT and approve this section?')) {
+            submitDecisionForm(sectionId, asrId, 'accept', '', '');
+        }
+        return;
+    }
+
+    openAsrSignModal({
+        type: 'decision',
+        decision: decision,
+        sectionId: sectionId,
+        asrId: asrId,
+        label: decision === 'accept' ? 'Accept and Approve Section' : 'Reject Section'
+    });
+}
+
+function submitDecisionForm(sectionId, asrId, decision, comment, password) {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '<?= site_url("form/section-decision") ?>';
@@ -1370,8 +1475,113 @@ function submitDecisionForm(sectionId, asrId, decision, comment) {
     commInput.value = comment;
     form.appendChild(commInput);
 
+    const passwordInput = document.createElement('input');
+    passwordInput.type = 'hidden';
+    passwordInput.name = 'password';
+    passwordInput.value = password;
+    form.appendChild(passwordInput);
+
     document.body.appendChild(form);
     form.submit();
 }
+
+document.querySelectorAll('[data-asr-sign-action]').forEach(function(button) {
+    button.addEventListener('click', function() {
+        openAsrSignModal({
+            type: button.dataset.asrSignAction,
+            label: button.dataset.asrLabel,
+            saveType: button.dataset.asrSaveType || '',
+            form: button.closest('form')
+        });
+    });
+});
+
+const asrSignCancel = document.getElementById('asrSignCancel');
+if (asrSignCancel) {
+    asrSignCancel.addEventListener('click', closeAsrSignModal);
+}
+
+const asrSignBackdrop = document.getElementById('asrSignBackdrop');
+if (asrSignBackdrop) {
+    asrSignBackdrop.addEventListener('click', function(event) {
+        if (event.target === asrSignBackdrop) closeAsrSignModal();
+    });
+}
+
+const asrSignConfirm = document.getElementById('asrSignConfirm');
+if (asrSignConfirm) {
+    asrSignConfirm.addEventListener('click', function() {
+        if (!asrPendingAction) return;
+
+        const comment = document.getElementById('asrSignComment');
+        const password = document.getElementById('asrSignPassword');
+
+        if (!comment.reportValidity() || !password.reportValidity()) return;
+
+        if (asrPendingAction.type === 'decision') {
+            submitDecisionForm(
+                asrPendingAction.sectionId,
+                asrPendingAction.asrId,
+                asrPendingAction.decision,
+                comment.value.trim(),
+                password.value
+            );
+            return;
+        }
+
+        const targetForm = asrPendingAction.form;
+        if (!targetForm) return;
+
+        let passwordField = targetForm.querySelector('input[name="password"]');
+        if (!passwordField) {
+            passwordField = document.createElement('input');
+            passwordField.type = 'hidden';
+            passwordField.name = 'password';
+            targetForm.appendChild(passwordField);
+        }
+        passwordField.value = password.value;
+
+        if (asrPendingAction.type === 'save') {
+            const sectionId = targetForm.querySelector('input[name^="form_id["]').name.match(/\[(\d+)\]/)[1];
+            const saveTypeField = document.createElement('input');
+            saveTypeField.type = 'hidden';
+            saveTypeField.name = 'save_type[' + sectionId + ']';
+            saveTypeField.value = asrPendingAction.saveType;
+            targetForm.appendChild(saveTypeField);
+            targetForm.requestSubmit();
+            return;
+        }
+
+        if (asrPendingAction.type === 'review') {
+            targetForm.action = '<?= site_url("form/section-review") ?>';
+            targetForm.requestSubmit();
+        }
+    });
+}
+</script>
+<script>
+(function () {
+    document.querySelectorAll('.section-panel').forEach(function (panel) {
+        const header = panel.querySelector('.section-panel-header');
+
+        if (!header) {
+            return;
+        }
+
+        function toggleSection() {
+            const isCollapsed = panel.classList.toggle('is-collapsed');
+            header.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+        }
+
+        header.addEventListener('click', toggleSection);
+
+        header.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleSection();
+            }
+        });
+    });
+})();
 </script>
 <?= $this->endSection() ?>

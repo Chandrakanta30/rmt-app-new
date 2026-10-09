@@ -1,8 +1,0 @@
-writable/*
-!writable/.htaccess
-vendor/
-.env
-.env.local
-.DS_Store
-Thumbs.db
-debugbar/

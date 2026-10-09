@@ -56,7 +56,16 @@
 <header class="top-header">
     <div class="header-left">
         <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle navigation">
-            <span>☰</span>
+            <svg class="sidebar-toggle-icon icon-collapse" aria-hidden="true" viewBox="0 0 24 24">
+                <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                <path d="M9 3v18"></path>
+                <path d="m16 15-3-3 3-3"></path>
+            </svg>
+            <svg class="sidebar-toggle-icon icon-expand" aria-hidden="true" viewBox="0 0 24 24" hidden>
+                <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                <path d="M9 3v18"></path>
+                <path d="m14 9 3 3-3 3"></path>
+            </svg>
         </button>
         <div class="breadcrumb">
             <span>SMS Central Lab</span>

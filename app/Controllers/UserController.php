@@ -18,6 +18,8 @@ class UserController extends BaseController
         //     'breadcrumb' => 'Users Management'
         // ]);
         $userModel = new UserModel();
+        $roleModel = new RoleModel();
+        $roles = $roleModel->findAll();
 
         $page = $this->request->getGet('page') ?? 1;
         $perPage = 10;
@@ -31,6 +33,7 @@ class UserController extends BaseController
 
         return view('users/index', [
             'users'      => $users,
+            'roles'      => $roles,
             'pagination' => [
                 'page'        => (int)$page,
                 'totalPages'  => ceil($total / $perPage),
