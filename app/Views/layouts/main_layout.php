@@ -654,6 +654,13 @@
             overflow: visible;
         }
 
+        /* Keep wide repeatable tables scrollable inside their section panel. */
+        .section-panel:has(.repeatable-table--wide) {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-gutter: stable;
+        }
+
         .table-template table,
         .repeatable-table table {
             width: 100%;
