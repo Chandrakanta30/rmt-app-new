@@ -660,8 +660,25 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 
 
     <div class="form-sections <?= $viewMode ? 'view-mode' : '' ?>">
-        <?php foreach ($sections as $index => $section): ?>
+        <?php
+        $sectionGroups = (new \App\Libraries\SectionLayout())->build($sections);
+        $isDefaultSectionTitle = static fn (string $title): bool =>
+            preg_match('/^(?:sub)?section\s*\d+(?:\.\d+)*$/i', trim($title)) === 1;
+        ?>
+        <?php foreach ($sectionGroups as $index => $sectionGroup): ?>
+            <div class="section-panel section-group <?= $index === 0 ? '' : 'is-collapsed' ?>">
+                <div class="section-panel-header" role="button" tabindex="0" aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>">
+                    <div>
+                        <span class="section-kicker">Section <?= esc($sectionGroup['number']) ?></span>
+                        <?php if (!$isDefaultSectionTitle($sectionGroup['title'])): ?>
+                            <h2 class="section-group-title"><?= esc($sectionGroup['title']) ?></h2>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="section-group-body">
+        <?php foreach ($sectionGroup['entries'] as $entryIndex => $sectionEntry): ?>
             <?php
+            $section = $sectionEntry['section'];
             $layout = strtolower($section['layout'] ?? '');
             $formatting = $section['formatting'] ?? [
                 'font_family' => 'times_new_roman',
@@ -677,14 +694,27 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 ['left', 'center', 'right', 'justify'],
                 true
             ) ? $formatting['text_alignment'] : 'justify';
+            $sectionFonts = [
+                'times_new_roman' => '"Times New Roman", Times, serif',
+                'arial' => 'Arial, Helvetica, sans-serif',
+                'calibri' => 'Calibri, Arial, sans-serif',
+                'georgia' => 'Georgia, serif',
+                'verdana' => 'Verdana, sans-serif',
+                'courier_new' => '"Courier New", monospace',
+            ];
+            $sectionFont = $sectionFonts[$formatting['font_family'] ?? 'times_new_roman'] ?? $sectionFonts['times_new_roman'];
+            $sectionFontSize = max(6, min(30, (int) ($formatting['font_size_pt'] ?? 12)));
             $sectionFormattingStyle = sprintf(
-                '--section-font-family:"Times New Roman", Times, serif;--section-font-size:12pt;--section-table-header-font-size:%dpt;--section-table-label-font-size:%dpt;--section-text-align:%s;',
+                '--section-font-family:%s;--section-font-size:%dpt;--section-table-header-font-size:%dpt;--section-table-label-font-size:%dpt;--section-text-align:%s;--section-depth:%d;',
+                $sectionFont,
+                $sectionFontSize,
                 $sectionHeaderFontSize,
                 $sectionLabelFontSize,
-                $sectionTextAlignment
+                $sectionTextAlignment,
+                min(4, $sectionEntry['depth'])
             );
             ?>
-            <form class="section-panel <?= $index === 0 ? '' : 'is-collapsed' ?>" style="<?= esc($sectionFormattingStyle, 'attr') ?>" method="post" action="<?= site_url('form/submit') ?>">
+            <form class="section-entry <?= $sectionEntry['depth'] > 0 ? 'section-subsection' : '' ?>" data-section-id="<?= esc($section['id']) ?>" style="<?= esc($sectionFormattingStyle, 'attr') ?>" method="post" action="<?= site_url('form/submit') ?>">
                 <?= csrf_field() ?>
 
                 <input type="hidden" name="form_id[<?= esc($section['id']) ?>]" value="<?= esc($form['id']) ?>">
@@ -700,12 +730,28 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                 $secStatus = $meta['status'] ?? 'draft';
                 $rejectionComment = $meta['rejection_comment'] ?? null;
                 $isApproved = ($secStatus === 'approved');
+                $saveSectionIds = array_values(array_filter(
+                    $sectionEntry['save_section_ids'],
+                    static fn ($id): bool => in_array($sectionMetadata[$id]['status'] ?? 'draft', ['draft', 'rejected', ''], true)
+                ));
+                $isMergedSave = count($sectionEntry['save_section_ids']) > 1;
+                $showSaveActions = !$isMergedSave || $section['id'] == end($saveSectionIds);
                 ?>
 
-                <div class="section-panel-header" role="button" tabindex="0" aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>">
+                <?php if ($sectionEntry['merge_heading'] !== null): ?>
+                    <h3 class="section-merge-heading"><?= esc($sectionEntry['merge_heading']) ?></h3>
+                <?php endif; ?>
+                <div class="section-entry-header">
                     <div>
-                        <span class="section-kicker">Section <?= $index + 1 ?></span>
-                        <h2><?= esc($section['title']) ?></h2>
+                        <?php if ($entryIndex === 0 && !$isDefaultSectionTitle($sectionGroup['title'])): ?>
+                            <h3><?= esc($sectionGroup['title']) ?></h3>
+                        <?php endif; ?>
+                        <?php if ($sectionEntry['depth'] > 0): ?>
+                            <span class="section-kicker">Subsection <?= esc($sectionEntry['number']) ?></span>
+                        <?php endif; ?>
+                        <?php if (!$isDefaultSectionTitle($section['title']) && ($sectionEntry['depth'] > 0 || trim($section['title']) !== trim($sectionGroup['title']))): ?>
+                            <h3><?= esc($section['title']) ?></h3>
+                        <?php endif; ?>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <?php if ($secStatus === 'submitted'): ?>
@@ -762,7 +808,7 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                             $value = old('sections.' . $section['id'] . '.' . $field['name'])
                                 ?? ($values[$section['id']][$field['name']] ?? '');
                             ?>
-                            <label class="form-group">
+                            <label class="form-group" style="grid-column:span <?= max(1, min(12, (int) ($field['grid_size'] ?? (['small' => 3, 'medium' => 6, 'large' => 9, 'full' => 12][$field['size'] ?? 'medium'] ?? 6)))) ?>;">
                                 <span><?= esc($field['label']) ?></span>
                                 <input
                                     type="<?= esc($field['type']) ?>"
@@ -777,21 +823,23 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     </div>
                 <?php endif; ?>
 
-                <?php if (!$viewMode && !($readonly ?? false)): ?>
+                <?php if (!$viewMode && !($readonly ?? false) && (!in_array($secStatus, ['draft', 'rejected', ''], true) || $showSaveActions)): ?>
                     <div class="section-actions d-flex gap-2 justify-content-end align-items-center mt-3 pt-3 border-top">
                         <?php if ($secStatus === 'draft' || $secStatus === 'rejected' || empty($secStatus)): ?>
                             <!-- PART 1: BEGINNING -> Save as Draft & Save -->
                             <button class="btn btn-outline-secondary px-3 font-weight-600"
-                                    type="<?= !empty($asrId) ? 'button' : 'submit' ?>"
+                                    type="<?= !empty($asrId) || $isMergedSave ? 'button' : 'submit' ?>"
                                     name="save_type[<?= $section['id'] ?>]"
                                     value="draft"
+                                    <?php if ($isMergedSave): ?>data-merged-save="<?= esc(json_encode($saveSectionIds), 'attr') ?>"<?php endif; ?>
                                     <?= !empty($asrId) ? 'data-asr-sign-action="save" data-asr-save-type="draft" data-asr-label="Save as Draft"' : '' ?>>
                                 💾 Save as Draft
                             </button>
                             <button class="btn btn-primary px-4 font-weight-600"
-                                    type="<?= !empty($asrId) ? 'button' : 'submit' ?>"
+                                    type="<?= !empty($asrId) || $isMergedSave ? 'button' : 'submit' ?>"
                                     name="save_type[<?= $section['id'] ?>]"
                                     value="submit"
+                                    <?php if ($isMergedSave): ?>data-merged-save="<?= esc(json_encode($saveSectionIds), 'attr') ?>"<?php endif; ?>
                                     <?= !empty($asrId) ? 'data-asr-sign-action="save" data-asr-save-type="submit" data-asr-label="Save and Submit"' : '' ?>>
                                 ✔ Save
                             </button>
@@ -820,7 +868,8 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                     </div>
                 <?php endif; ?>
 
-                <!-- Section Metadata Footer -->
+                <?php if ($sectionEntry['show_metadata']): ?>
+                <!-- One metadata footer per section or merged sibling group. -->
 
                 <?php $meta = ($sectionMetadata[$section['id']] ?? []); ?>
                 <div class="section-meta-footer" style="margin-top: 1.5rem; padding: 1rem 1.25rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.82rem; color: #475569; box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8);">
@@ -847,8 +896,12 @@ $renderSectionTemplate = static function (string $template, array $section, arra
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
                 </fieldset>
             </form>
+        <?php endforeach; ?>
+                </div>
+            </div>
         <?php endforeach; ?>
     </div>
 
@@ -1060,8 +1113,59 @@ $renderSectionTemplate = static function (string $template, array $section, arra
         background: #f8fafc;
     }
 
-    .section-panel.is-collapsed .section-fieldset {
+    .section-group.is-collapsed > .section-group-body {
         display: none;
+    }
+
+    .section-group:not(.is-collapsed) > .section-panel-header .section-group-title {
+        display: none;
+    }
+
+    .section-entry {
+        margin-left: calc(var(--section-depth, 0) * 1.25rem);
+        min-width: 0;
+    }
+
+    .section-entry + .section-entry {
+        margin-top: 1.5rem;
+        padding-top: 1.25rem;
+    }
+
+    .section-subsection {
+        border-left: 3px solid #e2e8f0;
+        padding-left: 1rem;
+    }
+
+    .section-entry-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: .75rem;
+        margin-bottom: 1rem;
+    }
+
+    .section-entry-header h3, .section-merge-heading {
+        font-family: var(--section-font-family, "Times New Roman", Times, serif);
+        font-size: var(--section-font-size, 12pt);
+        font-weight: 700;
+        margin: .25rem 0;
+    }
+
+    .section-entry .field-grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+    }
+
+    .section-entry .section-fieldset .table-template input,
+    .section-entry .section-fieldset .table-template textarea,
+    .section-entry .section-fieldset .table-template select {
+        font-size: var(--section-font-size, 12pt);
+    }
+
+    @media (max-width: 640px) {
+        .section-entry { margin-left: 0; }
+        .section-entry .field-grid > .form-group { grid-column: 1 / -1 !important; }
     }
 
     .rt-add-wrap {
@@ -1377,6 +1481,50 @@ $renderSectionTemplate = static function (string $template, array $section, arra
 <script>
 let asrPendingAction = null;
 
+// Collect merged members into one request while retaining their section-keyed fields.
+function prepareMergedSave(button) {
+    const sectionIds = JSON.parse(button.dataset.mergedSave);
+    const forms = sectionIds.map(function(id) {
+        return document.querySelector('form.section-entry[data-section-id="' + id + '"]');
+    });
+    if (forms.some(function(form) { return !form || !form.reportValidity(); })) return null;
+
+    const previous = document.getElementById('mergedSaveForm');
+    if (previous) previous.remove();
+    const target = document.createElement('form');
+    target.id = 'mergedSaveForm';
+    target.method = 'POST';
+    target.action = forms[0].action;
+    target.hidden = true;
+    forms.forEach(function(form, index) {
+        new FormData(form).forEach(function(value, name) {
+            // Review controls use scalar IDs; saving uses the section-keyed IDs.
+            if (name === 'section_id' || name === 'asr_id' || name === 'password'
+                || name.startsWith('save_type')
+                || (index > 0 && name === '<?= csrf_token() ?>')) return;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            target.appendChild(input);
+        });
+    });
+    const saveType = document.createElement('input');
+    saveType.type = 'hidden';
+    saveType.name = 'save_type';
+    saveType.value = button.value;
+    target.appendChild(saveType);
+    document.body.appendChild(target);
+    return target;
+}
+
+document.querySelectorAll('[data-merged-save]:not([data-asr-sign-action])').forEach(function(button) {
+    button.addEventListener('click', function() {
+        const target = prepareMergedSave(button);
+        if (target) target.requestSubmit();
+    });
+});
+
 function openAsrSignModal(action) {
     const backdrop = document.getElementById('asrSignBackdrop');
     const title = document.getElementById('asrSignTitle');
@@ -1487,11 +1635,13 @@ function submitDecisionForm(sectionId, asrId, decision, comment, password) {
 
 document.querySelectorAll('[data-asr-sign-action]').forEach(function(button) {
     button.addEventListener('click', function() {
+        const targetForm = button.dataset.mergedSave ? prepareMergedSave(button) : button.closest('form');
+        if (!targetForm || (button.dataset.asrSignAction === 'save' && !targetForm.reportValidity())) return;
         openAsrSignModal({
             type: button.dataset.asrSignAction,
             label: button.dataset.asrLabel,
             saveType: button.dataset.asrSaveType || '',
-            form: button.closest('form')
+            form: targetForm
         });
     });
 });
@@ -1542,12 +1692,14 @@ if (asrSignConfirm) {
         passwordField.value = password.value;
 
         if (asrPendingAction.type === 'save') {
-            const sectionId = targetForm.querySelector('input[name^="form_id["]').name.match(/\[(\d+)\]/)[1];
-            const saveTypeField = document.createElement('input');
-            saveTypeField.type = 'hidden';
-            saveTypeField.name = 'save_type[' + sectionId + ']';
+            let saveTypeField = targetForm.querySelector('input[name="save_type"]');
+            if (!saveTypeField) {
+                saveTypeField = document.createElement('input');
+                saveTypeField.type = 'hidden';
+                saveTypeField.name = 'save_type';
+                targetForm.appendChild(saveTypeField);
+            }
             saveTypeField.value = asrPendingAction.saveType;
-            targetForm.appendChild(saveTypeField);
             targetForm.requestSubmit();
             return;
         }
