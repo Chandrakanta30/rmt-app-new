@@ -406,6 +406,7 @@
 
         .eyebrow,
         .section-kicker {
+            font-family: "Times New Roman", Times, serif;
             color: var(--accent-emerald-dark);
             font-size: 0.78rem;
             font-weight: 800;
@@ -414,6 +415,7 @@
         }
 
         .page-heading h1 {
+            font-family: "Times New Roman", Times, serif;
             color: var(--text-main);
             font-size: clamp(1.6rem, 3vw, 2.25rem);
             font-weight: 800;
@@ -423,9 +425,10 @@
         }
 
         .page-subtitle {
+            font-family: "Times New Roman", Times, serif;
             color: var(--text-muted);
             margin-top: 0.4rem;
-            font-size: 0.95rem;
+            font-size: 12pt;
             max-width: 46rem;
         }
 
@@ -456,10 +459,15 @@
 
         .section-panel-header h2 {
             color: var(--text-main);
-            font-size: 1.15rem;
+            font-family: var(
+                --section-font-family,
+                "Times New Roman",
+                Times,
+                serif
+            );
+            font-size: var(--section-table-header-font-size, 12pt);
             font-weight: 700;
             letter-spacing: -0.01em;
-            font-family: "Times New Roman", Times, serif;
             text-align: left;
         }
 
@@ -644,6 +652,13 @@
             min-width: 100%;
             max-width: 100%;
             overflow: visible;
+        }
+
+        /* Keep wide repeatable tables scrollable inside their section panel. */
+        .section-panel:has(.repeatable-table--wide) {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-gutter: stable;
         }
 
         .table-template table,
